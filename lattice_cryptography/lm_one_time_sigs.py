@@ -1,6 +1,5 @@
 from lattice_algebra import Polynomial, PolynomialVector, LatticeParameters, hash2polynomialvector, hash2polynomial
-from lattice_cryptography.one_time_keys import SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, ALLOWABLE_SECPARS, \
-    SchemeParameters, UNIFORM_INFINITY_WEIGHT, bits_per_index_set, bits_per_coefficient
+from lattice_cryptography.one_time_keys import SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, ALLOWABLE_SECPARS, SchemeParameters, UNIFORM_INFINITY_WEIGHT, bits_per_index_set, bits_per_coefficient
 from typing import Any, Tuple, Dict, List
 from secrets import randbelow
 from multiprocessing import Pool, cpu_count
@@ -60,6 +59,7 @@ def make_random_seed(secpar: SecurityParameter, pp: PublicParameters) -> SecretS
 
 
 def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTuple:
+    # TODO: Move to one_time_keys.py
     secpar = pp['scheme_parameters'].secpar
     lp = pp['scheme_parameters'].lp
     x = seed
@@ -96,6 +96,7 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
 
 def keygen(pp: PublicParameters, num_keys_to_gen: int = 1, seeds: List[SecretSeed] = None,
            multiprocessing: bool = None) -> List[OneTimeKeyTuple]:
+    # TODO: Move to one_time_keys.py, import from one_time_keys, refactor so this is a wrapper
     """ Wraps keygen_core to handle workload distribution for batch generation """
 
     # Only default to parallelization if more than a few keys are needed (to avoid unnecessary overhead)
@@ -105,7 +106,7 @@ def keygen(pp: PublicParameters, num_keys_to_gen: int = 1, seeds: List[SecretSee
 
     # Pass straight through to keygen_core() if there is no reason or desire to parallelize (to avoid extra overhead)
     if (not multiprocessing) or (num_keys_to_gen == 1) or (num_workers == 1):
-        return keygen_core(pp=pp, num_keys_to_gen=num_keys_to_gen, seeds=seeds)
+        return keygen_core(pp=pp, num_keys=num_keys_to_gen, seeds=seeds)
 
     # Prepare inputs for the pool
     if not seeds:
@@ -120,22 +121,23 @@ def keygen(pp: PublicParameters, num_keys_to_gen: int = 1, seeds: List[SecretSee
     return [item for sublist in nested_keys for item in sublist][:num_keys_to_gen]
 
 
-def keygen_core(pp: PublicParameters, num_keys_to_gen: int = 1,
-                seeds: List[SecretSeed] = None) -> List[OneTimeKeyTuple]:
-    if num_keys_to_gen < 1:
+def keygen_core(pp: PublicParameters, num_keys: int = 1, seeds: List[SecretSeed] = None) -> List[OneTimeKeyTuple]:
+    # TODO: Move to one_time_keys.py
+    if num_keys < 1:
         raise ValueError('Can only generate a natural number worth of keys.')
-    elif seeds is not None and len(seeds) != num_keys_to_gen:
+    elif seeds is not None and len(seeds) != num_keys:
         raise ValueError('Must either roll keys with no seeds, or with a seed for each key.')
-    elif seeds is None and num_keys_to_gen == 1:
+    elif seeds is None and num_keys == 1:
         return [make_one_key(pp=pp)]
-    elif seeds is not None and num_keys_to_gen == 1:
+    elif seeds is not None and num_keys == 1:
         return [make_one_key(pp=pp, seed=seeds[0])]
     elif seeds is None:
-        return [make_one_key(pp=pp) for _ in range(num_keys_to_gen)]
+        return [make_one_key(pp=pp) for _ in range(num_keys)]
     return [make_one_key(pp=pp, seed=next_seed) for next_seed in seeds]
 
 
 def make_signature_challenge(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message) -> Challenge:
+    # TODO: Rename challenge_core, move to one_time_keys.py
     return hash2polynomial(
         secpar=pp['scheme_parameters'].secpar,
         lp=pp['scheme_parameters'].lp,
@@ -158,16 +160,14 @@ def make_signature_challenge(pp: PublicParameters, otvk: OneTimeVerificationKey,
 
 
 def sign(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message) -> Signature:
+    # TODO: Rename sign_core, move to one_time_keys.py, import sign_core, refactor so this is a wrapper
     c: Challenge = make_signature_challenge(pp=pp, otvk=otk[2], msg=msg)
-    # assert otk[1][0].const_time_flag
-    # assert otk[1][1].const_time_flag
-    # assert c.const_time_flag
     signature: Signature = otk[1][0] ** c + otk[1][1]
-    signature.const_time_flag = False
     return signature
 
 
 def verify(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, sig: Signature) -> bool:
+    # TODO: Rename verify_core, move to one_time_keys.py, import verify_core, refactor so this is a wrapper
     sig.const_time_flag = False
     cnws = sig.get_coef_rep()
     n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
@@ -195,6 +195,7 @@ def distribute_tasks(tasks: List[Any], num_workers: int = None) -> List[List[Any
     :param tasks: iterable containing list of tasks to carry out
     :param num_workers: number of workers available in the pool (usually = number of CPU cores)
     :return: task list broken up into num_workers segments
+    TODO: move to one_time_keys.py
     """
     if not num_workers:
         num_workers = cpu_count()
