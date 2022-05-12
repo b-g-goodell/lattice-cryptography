@@ -3,7 +3,7 @@ We test the lattice-crypto.lm_one_time_sigs module.
 """
 import pytest
 from lattice_algebra import random_polynomialvector, random_polynomial
-from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, SchemeParameters, bits_to_decode, bits_to_indices
+from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, SchemeParameters, bits_per_coefficient, bits_per_index_set
 from lattice_cryptography.lm_one_time_sigs import PublicParameters, Message, Challenge, Signature, OneTimeKeyTuple, make_setup_parameters, make_one_key, keygen, make_signature_challenge, sign, verify, LPs, SALTs, BDs, WTs, DISTRIBUTION, make_random_seed
 from secrets import randbits
 from typing import Any, Dict, List
@@ -93,11 +93,11 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(
+        bti=bits_per_index_set(
             secpar=i[0],
             degree=i[1].lp.degree,
             wt=sk_wt),
-        btd=bits_to_decode(
+        btd=bits_per_coefficient(
             secpar=i[0],
             bd=sk_bd),
         const_time_flag=False),
@@ -107,11 +107,11 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(
+        bti=bits_per_index_set(
             secpar=i[0],
             degree=i[1].lp.degree,
             wt=sk_wt),
-        btd=bits_to_decode(
+        btd=bits_per_coefficient(
             secpar=i[0],
             bd=sk_bd),
         const_time_flag=False),
@@ -207,11 +207,11 @@ for i in MAKE_ONE_KEY_CASES:
                         distribution=DISTRIBUTION,
                         dist_pars={'bd': ch_bd, 'wt': ch_wt},
                         num_coefs=ch_wt,
-                        bti=bits_to_indices(
+                        bti=bits_per_index_set(
                             secpar=i[0],
                             degree=i[1].lp.degree,
                             wt=ch_wt),
-                        btd=bits_to_decode(
+                        btd=bits_per_coefficient(
                             secpar=i[0],
                             bd=ch_bd),
                         const_time_flag=False)])]

@@ -4,7 +4,7 @@ We test the lattice-crypto.lm_one_time_sigs module.
 import pytest
 from lattice_algebra import random_polynomialvector
 from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, \
-    OneTimeSecretWitness, OneTimePublicStatement, SchemeParameters, bits_to_decode, bits_to_indices
+    OneTimeSecretWitness, OneTimePublicStatement, SchemeParameters, bits_per_coefficient, bits_per_index_set
 from lattice_cryptography.adaptor_sigs import PublicParameters, OneTimeKeyTuple, OneTimeWitStatPair, make_setup_parameters, \
     make_one_key, keygen, witgen, presign, preverify, adapt, extract, sign, verify, witness_verify, LPs, SALTs, BDs, \
     WTs, DISTRIBUTION, make_random_seed
@@ -90,11 +90,11 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(
+        bti=bits_per_index_set(
             secpar=i[0],
             degree=i[1].lp.degree,
             wt=sk_wt),
-        btd=bits_to_decode(
+        btd=bits_per_coefficient(
             secpar=i[0],
             bd=sk_bd),
         const_time_flag=False),
@@ -104,11 +104,11 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(
+        bti=bits_per_index_set(
             secpar=i[0],
             degree=i[1].lp.degree,
             wt=sk_wt),
-        btd=bits_to_decode(
+        btd=bits_per_coefficient(
             secpar=i[0],
             bd=sk_bd),
         const_time_flag=False),

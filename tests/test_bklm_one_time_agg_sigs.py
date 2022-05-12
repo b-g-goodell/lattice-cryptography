@@ -14,7 +14,7 @@ from lattice_cryptography.bklm_one_time_agg_sigs import make_setup_parameters, m
 from lattice_cryptography.lm_one_time_sigs import LPs, SALTs, DISTRIBUTION, make_random_seed, make_one_key, sign, verify, \
     keygen
 from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, \
-    SchemeParameters, bits_to_decode, bits_to_indices
+    SchemeParameters, bits_per_coefficient, bits_per_index_set
 
 SAMPLE_SIZE: int = 2 ** 6
 REQUIRED_SETUP_PARAMETERS = ['scheme_parameters', 'sk_bd', 'sk_wt', 'sk_salt', 'ch_bd', 'ch_wt', 'ch_salt', 'vf_bd',
@@ -105,8 +105,8 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(secpar=i[0], degree=i[1].lp.degree, wt=sk_wt),
-        btd=bits_to_decode(secpar=i[0], bd=sk_bd),
+        bti=bits_per_index_set(secpar=i[0], degree=i[1].lp.degree, wt=sk_wt),
+        btd=bits_per_coefficient(secpar=i[0], bd=sk_bd),
         const_time_flag=False),
     random_polynomialvector(
         secpar=i[0],
@@ -114,8 +114,8 @@ MAKE_ONE_KEY_CASES = [i + tuple([
         distribution=DISTRIBUTION,
         dist_pars={'bd': sk_bd, 'wt': sk_wt},
         num_coefs=sk_wt,
-        bti=bits_to_indices(secpar=i[0], degree=i[1].lp.degree, wt=sk_wt),
-        btd=bits_to_decode(secpar=i[0], bd=sk_bd),
+        bti=bits_per_index_set(secpar=i[0], degree=i[1].lp.degree, wt=sk_wt),
+        btd=bits_per_coefficient(secpar=i[0], bd=sk_bd),
         const_time_flag=False),
 ]) for i in MAKE_RANDOM_SEED_CASES for sk_bd in SOME_BDS for sk_wt in SOME_WTS]
 for i in MAKE_ONE_KEY_CASES:
@@ -212,8 +212,8 @@ for i in MAKE_ONE_KEY_CASES:
                         distribution=DISTRIBUTION,
                         dist_pars={'bd': j, 'wt': k},
                         num_coefs=k,
-                        bti=bits_to_indices(secpar=i[0], degree=i[1].lp.degree, wt=k),
-                        btd=bits_to_decode(secpar=i[0], bd=j),
+                        bti=bits_per_index_set(secpar=i[0], degree=i[1].lp.degree, wt=k),
+                        btd=bits_per_coefficient(secpar=i[0], bd=j),
                         const_time_flag=False)])]
 
 
@@ -375,8 +375,8 @@ def test_prepare_make_agg_coefs(unq_keys, ran_msgs, zipped_keys_and_msgs, srt_zi
 PREPARE_HASH2POLYINPUT_CASES = [i + j for i in SOME_PUBLIC_PARAMETERS for j in PREPARE_MAKE_AGG_COEFS_CASES]
 PREPARE_HASH2POLYINPUT_CASES = [
     i + tuple([
-        bits_to_decode(secpar=i[0], bd=i[2]['ag_bd']),
-        bits_to_indices(secpar=i[0], degree=i[1].lp.degree, wt=i[2]['ag_wt']),
+        bits_per_coefficient(secpar=i[0], bd=i[2]['ag_bd']),
+        bits_per_index_set(secpar=i[0], degree=i[1].lp.degree, wt=i[2]['ag_wt']),
         str(zip(i[7], i[8])),
         {
             'secpar': i[1].secpar,
@@ -386,8 +386,8 @@ PREPARE_HASH2POLYINPUT_CASES = [
                 'bd': i[2]['ag_bd'],
                 'wt': i[2]['ag_wt']},
             'num_coefs': i[2]['ag_wt'],
-            'bti': bits_to_indices(secpar=i[0], degree=i[1].lp.degree, wt=i[2]['ag_wt']),
-            'btd': bits_to_decode(secpar=i[0], bd=i[2]['ag_bd']),
+            'bti': bits_per_index_set(secpar=i[0], degree=i[1].lp.degree, wt=i[2]['ag_wt']),
+            'btd': bits_per_coefficient(secpar=i[0], bd=i[2]['ag_bd']),
             'msg': str(list(zip(i[7], i[8]))),
             'const_time_flag': False
         }

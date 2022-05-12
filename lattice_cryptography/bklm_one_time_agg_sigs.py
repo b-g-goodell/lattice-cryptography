@@ -2,7 +2,7 @@ from lattice_algebra import Polynomial, is_bitstring
 from typing import Dict, List, Tuple
 from lattice_cryptography.lm_one_time_sigs import SecurityParameter, PublicParameters, Message, Signature, \
     make_setup_parameters as setup_pars, make_signature_challenge, BDs, WTs, SALTs, hash2polynomial
-from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, OneTimeVerificationKey, bits_to_decode, bits_to_indices
+from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, OneTimeVerificationKey, bits_per_coefficient, bits_per_index_set
 
 
 
@@ -59,9 +59,9 @@ def prepare_make_agg_coefs(otvks: List[OneTimeVerificationKey], msgs: List[Messa
 
 def prepare_hash2polyinput(pp: PublicParameters, otvks: List[OneTimeVerificationKey], msgs: List[Message]) -> dict:
     srt_keys, srt_msgs = prepare_make_agg_coefs(otvks=otvks, msgs=msgs)
-    btd = bits_to_decode(secpar=pp['scheme_parameters'].secpar, bd=pp['ag_bd'])
-    bti = bits_to_indices(secpar=pp['scheme_parameters'].secpar, degree=pp['scheme_parameters'].lp.degree,
-                          wt=pp['ag_wt'])
+    btd = bits_per_coefficient(secpar=pp['scheme_parameters'].secpar, bd=pp['ag_bd'])
+    bti = bits_per_index_set(secpar=pp['scheme_parameters'].secpar, degree=pp['scheme_parameters'].lp.degree,
+                             wt=pp['ag_wt'])
     msg = str(list(zip(srt_keys, srt_msgs)))
     return {
         'secpar': pp['scheme_parameters'].secpar,

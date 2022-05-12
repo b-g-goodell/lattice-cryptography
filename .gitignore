@@ -58,3 +58,6 @@ coverage.xml
 venv/
 ENV/
 /tests/.pytest_cache/
+
+# old copy
+old_copy/

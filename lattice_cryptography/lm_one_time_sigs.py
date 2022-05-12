@@ -1,11 +1,10 @@
-from math import ceil
-
 from lattice_algebra import Polynomial, PolynomialVector, LatticeParameters, hash2polynomialvector, hash2polynomial
 from lattice_cryptography.one_time_keys import SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, ALLOWABLE_SECPARS, \
-    SchemeParameters, UNIFORM_INFINITY_WEIGHT, bits_to_indices, bits_to_decode
+    SchemeParameters, UNIFORM_INFINITY_WEIGHT, bits_per_index_set, bits_per_coefficient
 from typing import Any, Tuple, Dict, List
 from secrets import randbelow
 from multiprocessing import Pool, cpu_count
+from math import ceil
 
 # Typing
 SecurityParameter = int
@@ -17,16 +16,16 @@ Signature = PolynomialVector
 
 # COMPARE THE PARAMETERS HERE WITH OUR PARAMETER ANALYSIS
 LPs: Dict[int, LatticeParameters] = dict()
-LPs[128] = LatticeParameters(modulus=11777, degree=2 ** 8, length=13)
-LPs[256] = LatticeParameters(modulus=39937, degree=2 ** 8, length=23)
+LPs[128] = LatticeParameters(modulus=78593, degree=2**6, length=143)
+LPs[256] = LatticeParameters(modulus=355841, degree=2**8, length=90)
 
 BDs: Dict[int, Dict[str, int]] = dict()
-BDs[128] = {'sk_bd': 45, 'ch_bd': 1}
-BDs[256] = {'sk_bd': 65, 'ch_bd': 1}
+BDs[128] = {'sk_bd': 76, 'ch_bd': 2}
+BDs[256] = {'sk_bd': 172, 'ch_bd': 1}
 
 WTs: Dict[int, Dict[str, int]] = dict()
-WTs[128] = {'sk_wt': 256, 'ch_wt': 20}
-WTs[256] = {'sk_wt': 256, 'ch_wt': 50}
+WTs[128] = {'sk_wt': LPs[128].degree, 'ch_wt': LPs[128].degree}
+WTs[256] = {'sk_wt': LPs[256].degree, 'ch_wt': LPs[256].degree}
 
 SALTs: Dict[int, Dict[str, str]] = {i: {'sk_salt': 'SK_SALT', 'ch_salt': 'CH_SALT'} for i in ALLOWABLE_SECPARS}
 
@@ -50,8 +49,7 @@ def make_setup_parameters(secpar: SecurityParameter) -> PublicParameters:
     result['ch_wt']: int = WTs[secpar]['ch_wt']
 
     result['vf_wt']: int = max(1, min(result['scheme_parameters'].lp.degree, result['sk_wt'] * (1 + result['ch_wt'])))
-    result['vf_bd']: int = max(1, min(result['scheme_parameters'].lp.modulus // 2,
-                                      result['sk_bd'] * (1 + min(result['sk_wt'], result['ch_wt']) * result['ch_bd'])))
+    result['vf_bd']: int = result['sk_bd'] * (1 + min(result['scheme_parameters'].lp.degree, result['sk_wt'], result['ch_wt']) * result['ch_bd'])
     return result
 
 
@@ -72,8 +70,8 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
         distribution=DISTRIBUTION,
         dist_pars={'bd': pp['sk_bd'], 'wt': pp['sk_wt']},
         num_coefs=pp['sk_wt'],
-        bti=bits_to_indices(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
-        btd=bits_to_decode(secpar=secpar, bd=pp['sk_bd']),
+        bti=bits_per_index_set(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
+        btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
         salt=pp['sk_salt'] + 'LEFT',
         msg=x.seed,
         const_time_flag=True
@@ -83,8 +81,8 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
         distribution=DISTRIBUTION,
         dist_pars={'bd': pp['sk_bd'], 'wt': pp['sk_wt']},
         num_coefs=pp['sk_wt'],
-        bti=bits_to_indices(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
-        btd=bits_to_decode(secpar=secpar, bd=pp['sk_bd']),
+        bti=bits_per_index_set(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
+        btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
         salt=pp['sk_salt'] + 'RIGHT',
         msg=x.seed,
         const_time_flag=True
@@ -92,8 +90,7 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
     otsk = OneTimeSigningKey(secpar=secpar, lp=lp, left_key=left_signing_key, right_key=right_signing_key)
     key_ch = pp['scheme_parameters'].key_ch
     key_ch.const_time_flag = True
-    otvk = OneTimeVerificationKey(secpar=secpar, lp=lp, left_key=key_ch * left_signing_key,
-                                  right_key=key_ch * right_signing_key)
+    otvk = OneTimeVerificationKey(secpar=secpar, lp=lp, left_key=key_ch * left_signing_key, right_key=key_ch * right_signing_key)
     return x, otsk, otvk
 
 
@@ -147,12 +144,12 @@ def make_signature_challenge(pp: PublicParameters, otvk: OneTimeVerificationKey,
         salt=pp['ch_salt'],
         msg=str(otvk) + ', ' + msg,
         num_coefs=pp['ch_wt'],
-        bti=bits_to_indices(
+        bti=bits_per_index_set(
             secpar=pp['scheme_parameters'].secpar,
             degree=pp['scheme_parameters'].lp.degree,
             wt=pp['ch_wt']
         ),
-        btd=bits_to_decode(
+        btd=bits_per_coefficient(
             secpar=pp['scheme_parameters'].secpar,
             bd=pp['ch_bd']
         ),

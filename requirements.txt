@@ -1,1 +1,3 @@
 lattice-algebra==0.1.1
+pytest~=7.1.2
+setuptools~=60.2.0
