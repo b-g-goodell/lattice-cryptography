@@ -1,15 +1,25 @@
-from lattice_algebra import LatticeParameters
-from lattice_cryptography.one_time_keys import SecurityParameter, PublicParameters, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, OneTimeKeyTuple, Message, Challenge, Signature, ALLOWABLE_SECPARS, SchemeParameters, UNIFORM_INFINITY_WEIGHT, make_random_seed, make_one_key, keygen_core as keygen, sign_core as sign, verify_core as verify
+from lattice_algebra import LatticeParameters, Polynomial
+from lattice_cryptography.one_time_keys import SecurityParameter, PublicParameters, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, OneTimeKeyTuple, Message, Challenge, Signature, ALLOWABLE_SECPARS, SchemeParameters, UNIFORM_INFINITY_WEIGHT, make_random_seed, make_one_key, keygen_core as keygen, challenge_core as make_challenge, sign_core as sign, verify_core
 from typing import Dict
 
 # COMPARE THE PARAMETERS HERE WITH OUR PARAMETER ANALYSIS
 LPs: Dict[int, LatticeParameters] = dict()
-LPs[128] = LatticeParameters(modulus=78593, degree=2**6, length=143)
-LPs[256] = LatticeParameters(modulus=355841, degree=2**8, length=90)
+LPs[128] = LatticeParameters(
+    modulus=78593,
+    degree=2**6,
+    length=143)
+LPs[256] = LatticeParameters(
+    modulus=355841,
+    degree=2**8,
+    length=90)
 
 BDs: Dict[int, Dict[str, int]] = dict()
-BDs[128] = {'sk_bd': 76, 'ch_bd': 2}
-BDs[256] = {'sk_bd': 172, 'ch_bd': 1}
+BDs[128] = {
+    'sk_bd': 76,
+    'ch_bd': 2}
+BDs[256] = {
+    'sk_bd': 172,
+    'ch_bd': 1}
 
 WTs: Dict[int, Dict[str, int]] = dict()
 WTs[128] = {'sk_wt': LPs[128].degree, 'ch_wt': LPs[128].degree}
@@ -39,3 +49,8 @@ def make_setup_parameters(secpar: SecurityParameter) -> PublicParameters:
     result['vf_wt']: int = max(1, min(result['scheme_parameters'].lp.degree, result['sk_wt'] * (1 + result['ch_wt'])))
     result['vf_bd']: int = result['sk_bd'] * (1 + min(result['scheme_parameters'].lp.degree, result['sk_wt'], result['ch_wt']) * result['ch_bd'])
     return result
+
+
+def verify(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, sig: Signature) -> bool:
+    target: Polynomial = otvk[0] * make_challenge(pp=pp, otvk=otvk, msg=msg) + otvk[1]
+    return verify_core(sig=sig, bd=pp['vf_bd'], wt=pp['vf_wt'], key_ch=pp['key_ch'], target=target)

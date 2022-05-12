@@ -418,7 +418,7 @@ def keygen_core(pp: PublicParameters, num_keys_to_gen: int = 1, seeds: List[Secr
     return [item for sublist in nested_keys for item in sublist][:num_keys_to_gen]
 
 
-def challenge_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message) -> Challenge:
+def challenge_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, const_time_flag: bool = True) -> Challenge:
     return hash2polynomial(
         secpar=pp['scheme_parameters'].secpar,
         lp=pp['scheme_parameters'].lp,
@@ -436,32 +436,24 @@ def challenge_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Mess
             secpar=pp['scheme_parameters'].secpar,
             bd=pp['ch_bd']
         ),
-        const_time_flag=True
+        const_time_flag=const_time_flag
     )
 
 
 def sign_core(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message) -> Signature:
-    c: Challenge = challenge_core(pp=pp, otvk=otk[2], msg=msg)
+    if otk[1].left_key.const_time_flag != otk[1].right_key.const_time_flag:
+        raise ValueError('Must either do all constant time or not, no mixing.')
+    c: Challenge = challenge_core(pp=pp, otvk=otk[2], msg=msg, const_time_flag=otk[1].left_key.const_time_flag)
     signature: Signature = otk[1][0] ** c + otk[1][1]
     return signature
 
 
-def verify_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, sig: Signature) -> bool:
+def verify_core(sig: Signature, bd: int, wt: int, key_ch: PolynomialVector, target: Polynomial) -> bool:
     sig.const_time_flag = False
     cnws = sig.get_coef_rep()
     n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
-    if n > pp['vf_bd'] or w > pp['vf_wt']:
+    if n < 1 or n > bd or wt < 1 or w > wt:
         return False
 
-    key_ch = pp['scheme_parameters'].key_ch
-    c: Challenge = challenge_core(pp=pp, otvk=otvk, msg=msg)
-
     key_ch.const_time_flag = False
-    c.const_time_flag = False
-    otvk.left_key.const_time_flag = False
-    otvk.right_key.const_time_flag = False
-
-    lhs = key_ch * sig
-    rhs = otvk[0] * c + otvk[1]
-
-    return lhs == rhs
+    return key_ch * sig == target
