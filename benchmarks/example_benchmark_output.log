@@ -1,4 +1,4 @@
-Beginning benchmarks (multiprocessing keygen with 64 workers)
+Beginning benchmarks (multiprocessing keygen_core with 64 workers)
 Benchmarking for secpar = 128.
     Parameter generation benchmarking for secpar = 128.
         Generating parameters.
