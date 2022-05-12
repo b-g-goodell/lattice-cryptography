@@ -226,8 +226,9 @@ def distribute_tasks(tasks: List[Any], num_workers: int = None) -> List[List[Any
     return task_list_all
 
 
-def prepare_make_agg_coefs(otvks: List[OneTimeVerificationKey], msgs: List[Message]) -> Tuple[List[OneTimeVerificationKey], List[Message]]:
+def prepare_make_agg_coefs(otvks: List[OneTimeVerificationKey], msgs: List[Message]) -> tuple:
     # TODO: Refactor to verify types, and then modify test to take this into account
+    # TODO: improve typing
     if len(otvks) != len(msgs):
         raise ValueError("Cannot prepare_make_agg_coefs without two input vectors of equal length.")
     elif not all(is_bitstring(msg) for msg in msgs):
@@ -236,15 +237,16 @@ def prepare_make_agg_coefs(otvks: List[OneTimeVerificationKey], msgs: List[Messa
         raise ValueError(f"Input list ove one-time verification keys must be List[OneTimeVerificationKey], but had type(otvks) = {type(otvks)} and type(otvk for otvk in otvks) = {[type(otvk) for otvk in otvks]}")
     zipped_keys_and_msgs: List[Tuple[OneTimeVerificationKey, Message]] = list(zip(otvks, msgs))
     zipped_srtd_keys_and_msgs: List[Tuple[OneTimeVerificationKey, Message]] = sorted(zipped_keys_and_msgs, key=lambda x: str(x[0]))
-    srt_keys, srt_msgs = ([i[j] for i in zipped_srtd_keys_and_msgs] for j in range(len(zipped_srtd_keys_and_msgs[0])))
-    return srt_keys, srt_msgs
+    return tuple(([i[j] for i in zipped_srtd_keys_and_msgs] for j in range(len(zipped_srtd_keys_and_msgs[0]))))
 
 
 def prepare_hash2polyinput(pp: PublicParameters, otvks: List[OneTimeVerificationKey], msgs: List[Message]) -> dict[str: Any]:
-    srt_keys, srt_msgs = prepare_make_agg_coefs(otvks=otvks, msgs=msgs)
+    srt_keys_and_msgs: Tuple[List[OneTimeVerificationKey], List[Message]] = prepare_make_agg_coefs(otvks=otvks, msgs=msgs)
+    srt_keys: List[OneTimeVerificationKey]
+    srt_msgs: List[Message]
+    srt_keys, srt_msgs = srt_keys_and_msgs
     bpc: int = bits_per_coefficient(secpar=pp['scheme_parameters'].secpar, bd=pp['ag_bd'])
-    bpis: int = bits_per_index_set(secpar=pp['scheme_parameters'].secpar, degree=pp['scheme_parameters'].lp.degree,
-                             wt=pp['ag_wt'])
+    bpis: int = bits_per_index_set(secpar=pp['scheme_parameters'].secpar, degree=pp['scheme_parameters'].lp.degree, wt=pp['ag_wt'])
     msg: Message = str(list(zip(srt_keys, srt_msgs)))
     return {'secpar': pp['scheme_parameters'].secpar, 'lp': pp['scheme_parameters'].lp,
             'distribution': pp['scheme_parameters'].distribution, 'dist_pars': {'bd': pp['ag_bd'], 'wt': pp['ag_wt']},
@@ -257,35 +259,45 @@ def make_agg_coefs(pp: PublicParameters, otvks: List[OneTimeVerificationKey],
     return [hash2polynomial(**hash2polyinput, salt=pp['ag_salt'] + str(i)) for i in range(len(otvks))]
 
 
-def prepare_aggregate(otvks: List[OneTimeVerificationKey], msgs: List[Message], sigs: List[Signature]) -> Tuple[
-    List[OneTimeVerificationKey], List[Message], List[Signature]]:
-    zipped_data = list(zip(otvks, msgs, sigs))
-    zipped_data_srt_by_key = sorted(zipped_data, key=lambda x: str(x[0]))
-    srt_keys, srt_msgs, srt_sigs = ([i[j] for i in zipped_data_srt_by_key] for j in range(len(zipped_data[0])))
-    return srt_keys, srt_msgs, srt_sigs
+def prepare_aggregate(otvks: List[OneTimeVerificationKey], msgs: List[Message], sigs: List[Signature]) -> tuple:
+    zipped_data: List[Tuple[OneTimeVerificationKey, Message, Signature]] = list(zip(otvks, msgs, sigs))
+    zipped_data_srt_by_key: List[Tuple[OneTimeVerificationKey, Message, Signature]]  = sorted(zipped_data, key=lambda x: str(x[0]))
+    return tuple(([i[j] for i in zipped_data_srt_by_key] for j in range(len(zipped_data_srt_by_key[0]))))
+    # srt_keys, srt_msgs, srt_sigs = ([i[j] for i in zipped_data_srt_by_key] for j in range(len(zipped_data[0])))
+    # return srt_keys, srt_msgs, srt_sigs
 
 
 def aggregate(pp: PublicParameters, otvks: List[OneTimeVerificationKey], msgs: List[Message], sigs: List[Signature]) -> Signature:
-    srt_keys, srt_msgs, srt_sigs = prepare_aggregate(otvks=otvks, msgs=msgs, sigs=sigs)
-    ag_coefs = make_agg_coefs(pp=pp, otvks=otvks, msgs=msgs)
+    srt_keys_and_msgs_and_sigs: Tuple[List[OneTimeVerificationKey], List[Message], List[Signature]] = prepare_aggregate(otvks=otvks, msgs=msgs, sigs=sigs)
+    srt_keys: List[OneTimeVerificationKey]
+    srt_msgs: List[Message]
+    srt_sigs: List[Signature]
+    srt_keys, srt_msgs, srt_sigs = srt_keys_and_msgs_and_sigs
+    ag_coefs: List[AggCoef] = make_agg_coefs(pp=pp, otvks=otvks, msgs=msgs)
     return sum([sig ** ag_coef for sig, ag_coef in zip(srt_sigs, ag_coefs)])
 
 
 def aggregate_verify(pp: PublicParameters, otvks: List[OneTimeVerificationKey], msgs: List[Message],
                      ag_sig: Signature) -> bool:
-    cnw: List[Tuple[Dict[int, int], int, int]] = ag_sig.get_coef_rep()
-    n, w = max(i[1] for i in cnw), max(i[2] for i in cnw)
-    if n < 1 or n > pp['avf_bd'] or w < 1 or w > pp['avf_wt'] or len(otvks) < 1 or \
-            len(otvks) > pp['ag_cap'] or len(otvks) != len(msgs):
+    if len(otvks) < 1 or len(otvks) > pp['ag_cap'] or len(otvks) != len(msgs):
         return False
 
-    challenges: List[Polynomial] = [make_signature_challenge(pp=pp, otvk=otvk, msg=msg) for otvk, msg in
-                                    zip(otvks, msgs)]
-    zipped_keys_msgs_and_challs = list(zip(otvks, msgs, challenges))
-    srt_otvks, sorted_msgs, sorted_challs = (
-        [i[j] for i in sorted(zipped_keys_msgs_and_challs, key=lambda x: str(x[0]))]
-        for j in range(len(zipped_keys_msgs_and_challs[0])))
-    ag_coefs = make_agg_coefs(pp=pp, otvks=srt_otvks, msgs=sorted_msgs)
+    cnw: List[Tuple[Dict[int, int], int, int]] = ag_sig.get_coef_rep()
+    n: int
+    w: int
+    n, w = max(i[1] for i in cnw), max(i[2] for i in cnw)
+
+    if n < 1 or n > pp['avf_bd'] or w < 1 or w > pp['avf_wt']:
+        return False
+
+    challs: List[Polynomial] = [make_signature_challenge(pp=pp, otvk=otvk, msg=msg) for otvk, msg in zip(otvks, msgs)]
+    zipped_keys_and_msgs_and_challs: List[Tuple[OneTimeVerificationKey, Message, Challenge]] = list(zip(otvks, msgs, challs))
+    srtd_keys_and_msgs_and_challs: List[Tuple[OneTimeVerificationKey, Message, Challenge]] = sorted(zipped_keys_and_msgs_and_challs, key=lambda x:str(x[0]))
+    srtd_keys: List[OneTimeVerificationKey]
+    srtd_msgs: List[Message]
+    srtd_challs: List[Challenge]
+    srtd_keys, srtd_msgs, srtd_challs = srtd_keys_and_msgs_and_challs
+    ag_coefs: List[AggCoef] = make_agg_coefs(pp=pp, otvks=srtd_keys, msgs=srtd_msgs)
     sum_of_otvks: Polynomial = sum(
-        [(otvk[0] * c + otvk[1]) * ag_coef for ag_coef, c, otvk in zip(ag_coefs, sorted_challs, srt_otvks)])
+        [(otvk[0] * c + otvk[1]) * ag_coef for ag_coef, c, otvk in zip(ag_coefs, srtd_challs, srtd_keys)])
     return pp['scheme_parameters'].key_ch * ag_sig == sum_of_otvks
