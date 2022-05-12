@@ -5,6 +5,8 @@ from timeit import default_timer as timer
 from lattice_cryptography.lm_one_time_sigs import *
 from multiprocessing import Pool, cpu_count
 from math import ceil
+from typing import List, Any
+from secrets import randbelow
 
 # Benchmarking params
 SAMPLE_SIZE: int = 2 ** 8

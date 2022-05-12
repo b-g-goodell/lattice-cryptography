@@ -1,9 +1,18 @@
 """
 The lattice_cryptography.keys module handles keys and their generation.
 """
-from lattice_algebra import Polynomial, PolynomialVector, LatticeParameters, random_polynomialvector, \
-    is_bitstring, UNIFORM_INFINITY_WEIGHT
+from lattice_algebra import Polynomial, PolynomialVector, LatticeParameters, random_polynomialvector, is_bitstring, UNIFORM_INFINITY_WEIGHT, hash2polynomial, hash2polynomialvector
 from math import ceil, log2
+from typing import Dict, Any, Tuple, List
+from multiprocessing import Pool, cpu_count
+from secrets import randbelow
+
+# Typing
+SecurityParameter = int
+PublicParameters = Dict[str, Any]
+Message = str
+Challenge = Polynomial
+Signature = PolynomialVector
 
 # Allowed security parameters
 ALLOWABLE_SECPARS = [128, 256]
@@ -45,6 +54,9 @@ class SecretSeed(object):
 
     def __bool__(self):
         return bool(self.secpar) and bool(self.lp) and bool(self.seed)
+
+    def __repr__(self):
+        return str((self.secpar, self.lp, self.seed))
 
 
 SECWIT_INST_ERR_NEED_VEC: str = MISSING_DATA_ERR
@@ -237,6 +249,7 @@ class OneTimeVerificationKey(object):
         return secpars_match and lps_match and left_keys_match and right_keys_match
 
 
+OneTimeKeyTuple = Tuple[SecretSeed, OneTimeSigningKey, OneTimeVerificationKey]
 ALLOWABLE_DISTRIBUTIONS = [UNIFORM_INFINITY_WEIGHT]
 
 
@@ -297,3 +310,158 @@ class SchemeParameters(object):
         same_ch = self.key_ch == other.key_ch
         same_dist = self.distribution == other.distribution
         return same_secpar and same_lp and same_ch and same_dist
+
+
+def make_random_seed(secpar: SecurityParameter, pp: PublicParameters) -> SecretSeed:
+    seed = bin(randbelow(2 ** secpar))[2:].zfill(secpar)
+    return SecretSeed(secpar=secpar, lp=pp['scheme_parameters'].lp, seed=seed)
+
+
+def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTuple:
+    secpar = pp['scheme_parameters'].secpar
+    distribution = pp['scheme_parameters'].distribution
+    lp = pp['scheme_parameters'].lp
+    x = seed
+    if not x:
+        x = make_random_seed(secpar=secpar, pp=pp)
+    left_signing_key: PolynomialVector = hash2polynomialvector(
+        secpar=secpar, lp=lp,
+        distribution=distribution,
+        dist_pars={'bd': pp['sk_bd'], 'wt': pp['sk_wt']},
+        num_coefs=pp['sk_wt'],
+        bti=bits_per_index_set(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
+        btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
+        salt=pp['sk_salt'] + 'LEFT',
+        msg=x.seed,
+        const_time_flag=True
+    )
+    right_signing_key: PolynomialVector = hash2polynomialvector(
+        secpar=secpar, lp=lp,
+        distribution=distribution,
+        dist_pars={'bd': pp['sk_bd'], 'wt': pp['sk_wt']},
+        num_coefs=pp['sk_wt'],
+        bti=bits_per_index_set(secpar=secpar, degree=lp.degree, wt=pp['sk_wt']),
+        btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
+        salt=pp['sk_salt'] + 'RIGHT',
+        msg=x.seed,
+        const_time_flag=True
+    )
+    otsk = OneTimeSigningKey(secpar=secpar, lp=lp, left_key=left_signing_key, right_key=right_signing_key)
+    key_ch = pp['scheme_parameters'].key_ch
+    key_ch.const_time_flag = True
+    otvk = OneTimeVerificationKey(secpar=secpar, lp=lp, left_key=key_ch * left_signing_key, right_key=key_ch * right_signing_key)
+    return x, otsk, otvk
+
+
+def make_one_key_wrapper(pp: PublicParameters, num_keys: int = 1, seeds: List[SecretSeed] = None) -> List[OneTimeKeyTuple]:
+    if num_keys < 1:
+        raise ValueError('Can only generate a natural number worth of keys.')
+    elif seeds is not None and len(seeds) != num_keys:
+        raise ValueError('Must either roll keys with no seeds, or with a seed for each key.')
+    elif seeds is None and num_keys == 1:
+        return [make_one_key(pp=pp)]
+    elif seeds is not None and num_keys == 1:
+        return [make_one_key(pp=pp, seed=seeds[0])]
+    elif seeds is None:
+        return [make_one_key(pp=pp) for _ in range(num_keys)]
+    return [make_one_key(pp=pp, seed=next_seed) for next_seed in seeds]
+
+
+def distribute_tasks(tasks: List[Any], num_workers: int = None) -> List[List[Any]]:
+    """
+    Helper function that distributes a list of arbitrary tasks among a specific number of workers
+
+    :param tasks: iterable containing list of tasks to carry out
+    :param num_workers: number of workers available in the pool (usually = number of CPU cores)
+    :return: task list broken up into num_workers segments
+    """
+    if not num_workers:
+        num_workers = cpu_count()
+
+    # Determine how the jobs should be split up per core
+    r: int = len(tasks) % num_workers  # number of leftover jobs once all complete batches are processed
+    job_counts: List[int] = r * [1 + (len(tasks) // num_workers)] + (num_workers - r) * [len(tasks) // num_workers]
+
+    # Distribute the tasks accordingly
+    i: int = 0
+    task_list_all: List[List[Any]] = []
+    for load_amount in job_counts:
+        task_list_all.append(tasks[i:i + load_amount])
+        i += load_amount
+    return task_list_all
+
+
+def keygen_core(pp: PublicParameters, num_keys_to_gen: int = 1, seeds: List[SecretSeed] = None,
+                multiprocessing: bool = None) -> List[OneTimeKeyTuple]:
+    # TODO: Move to one_time_keys.py, import from one_time_keys, refactor so this is a wrapper
+    """ Wraps make_one_key_wrapper to handle workload distribution for batch generation """
+
+    # Only default to parallelization if more than a few keys are needed (to avoid unnecessary overhead)
+    if multiprocessing is None:
+        multiprocessing: bool = num_keys_to_gen >= 16
+    num_workers: int = cpu_count()
+
+    # Pass straight through to make_one_key_wrapper() if there is no reason or desire to parallelize (to avoid extra overhead)
+    if (not multiprocessing) or (num_keys_to_gen == 1) or (num_workers == 1):
+        return make_one_key_wrapper(pp=pp, num_keys=num_keys_to_gen, seeds=seeds)
+
+    # Prepare inputs for the pool
+    if not seeds:
+        iterable: List[Tuple[Dict[str, Any], int]] = [(pp, ceil(num_keys_to_gen / num_workers))] * num_workers
+    else:
+        seed_batches: List[List[Any]] = distribute_tasks(tasks=seeds)
+        iterable: List[tuple] = list(zip([pp] * len(seed_batches), [len(x) for x in seed_batches], seed_batches))
+
+    # Generate the keys and return the flattened results
+    with Pool(num_workers) as pool:
+        nested_keys: List[List[OneTimeKeyTuple]] = pool.starmap(func=keygen_core, iterable=iterable)
+    return [item for sublist in nested_keys for item in sublist][:num_keys_to_gen]
+
+
+def challenge_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message) -> Challenge:
+    return hash2polynomial(
+        secpar=pp['scheme_parameters'].secpar,
+        lp=pp['scheme_parameters'].lp,
+        distribution=pp['scheme_parameters'].distribution,
+        dist_pars={'bd': pp['ch_bd'], 'wt': pp['ch_wt']},
+        salt=pp['ch_salt'],
+        msg=str(otvk) + ', ' + msg,
+        num_coefs=pp['ch_wt'],
+        bti=bits_per_index_set(
+            secpar=pp['scheme_parameters'].secpar,
+            degree=pp['scheme_parameters'].lp.degree,
+            wt=pp['ch_wt']
+        ),
+        btd=bits_per_coefficient(
+            secpar=pp['scheme_parameters'].secpar,
+            bd=pp['ch_bd']
+        ),
+        const_time_flag=True
+    )
+
+
+def sign_core(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message) -> Signature:
+    c: Challenge = challenge_core(pp=pp, otvk=otk[2], msg=msg)
+    signature: Signature = otk[1][0] ** c + otk[1][1]
+    return signature
+
+
+def verify_core(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, sig: Signature) -> bool:
+    sig.const_time_flag = False
+    cnws = sig.get_coef_rep()
+    n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
+    if n > pp['vf_bd'] or w > pp['vf_wt']:
+        return False
+
+    key_ch = pp['scheme_parameters'].key_ch
+    c: Challenge = challenge_core(pp=pp, otvk=otvk, msg=msg)
+
+    key_ch.const_time_flag = False
+    c.const_time_flag = False
+    otvk.left_key.const_time_flag = False
+    otvk.right_key.const_time_flag = False
+
+    lhs = key_ch * sig
+    rhs = otvk[0] * c + otvk[1]
+
+    return lhs == rhs

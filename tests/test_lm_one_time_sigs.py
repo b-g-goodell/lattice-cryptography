@@ -3,8 +3,8 @@ We test the lattice-crypto.lm_one_time_sigs module.
 """
 import pytest
 from lattice_algebra import random_polynomialvector, random_polynomial
-from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, SchemeParameters, bits_per_coefficient, bits_per_index_set
-from lattice_cryptography.lm_one_time_sigs import PublicParameters, Message, Challenge, Signature, OneTimeKeyTuple, make_setup_parameters, make_one_key, keygen, make_signature_challenge, sign, verify, LPs, SALTs, BDs, WTs, DISTRIBUTION, make_random_seed
+from lattice_cryptography.one_time_keys import ALLOWABLE_SECPARS, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, SchemeParameters, bits_per_coefficient, bits_per_index_set, challenge_core as make_signature_challenge
+from lattice_cryptography.lm_one_time_sigs import PublicParameters, Message, Challenge, Signature, OneTimeKeyTuple, make_setup_parameters, make_one_key, keygen, sign, verify, LPs, SALTs, BDs, WTs, DISTRIBUTION, make_random_seed
 from secrets import randbits
 from typing import Any, Dict, List
 
@@ -66,15 +66,6 @@ MAKE_RANDOM_SEED_CASES = [
 MAKE_RANDOM_SEED_CASES = [
     i + tuple([SecretSeed(secpar=i[0], lp=i[1].lp, seed=i[-1])]) for i in MAKE_RANDOM_SEED_CASES
 ]
-
-
-@pytest.mark.parametrize("secpar,sp,pp,expected_int,expected_str,expected_seed", MAKE_RANDOM_SEED_CASES)
-def test_make_random_seed(mocker, secpar, sp, pp, expected_int, expected_str, expected_seed):
-    mocker.patch('lattice_cryptography.lm_one_time_sigs.randbelow', return_value=expected_int)
-    observed_seed = make_random_seed(secpar=secpar, pp=pp)
-    assert observed_seed == expected_seed
-    assert observed_seed.seed == expected_str
-
 
 BD_MIN: int = 1
 BD_MAX: int = 2**1

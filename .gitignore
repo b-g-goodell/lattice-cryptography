@@ -61,3 +61,6 @@ ENV/
 
 # old copy
 old_copy/
+
+# logs
+.log
