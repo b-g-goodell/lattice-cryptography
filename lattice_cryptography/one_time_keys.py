@@ -82,7 +82,7 @@ class OneTimeSecretWitness(object):
     lp: LatticeParameters
     key: PolynomialVector
 
-    def __init__(self, secpar: int, lp: LatticeParameters, key: PolynomialVector):
+    def __init__(self, secpar: int, lp: LatticeParameters, key: PolynomialVector, const_time_flag: bool = True):
         if secpar not in ALLOWABLE_SECPARS:
             raise ValueError(INVALID_DATA_VALUES_ERR + f' Input security parameter must be' +
                              f' in {ALLOWABLE_SECPARS} but had {secpar}.')
@@ -92,7 +92,7 @@ class OneTimeSecretWitness(object):
         self.lp = lp
         self.key = key
         for i in self.key.entries:
-            i.const_time_flag = True
+            i.const_time_flag = const_time_flag
 
     def __eq__(self, other):
         same_secpar: bool = self.secpar == other.secpar
@@ -159,8 +159,9 @@ class OneTimeSigningKey(object):
     lp: LatticeParameters
     left_key: PolynomialVector
     right_key: PolynomialVector
+    const_time_flag: bool
 
-    def __init__(self, secpar: int, lp: LatticeParameters, left_key: PolynomialVector, right_key: PolynomialVector):
+    def __init__(self, secpar: int, lp: LatticeParameters, left_key: PolynomialVector, right_key: PolynomialVector, const_time_flag: bool = True):
         if not isinstance(secpar, int) or secpar not in ALLOWABLE_SECPARS:
             raise ValueError(INVALID_DATA_VALUES_ERR + f' Input security parameter must be' +
                              f' in {ALLOWABLE_SECPARS} but had {secpar}.')
@@ -171,12 +172,13 @@ class OneTimeSigningKey(object):
             raise ValueError(INVALID_DATA_VALUES_ERR + f' Both input keys must be PolynomialVectors.')
         elif left_key.lp != lp or right_key.lp != lp:
             raise ValueError(SECWIT_INST_ERR_LP_MISMATCH)
+        elif const_time_flag != left_key.const_time_flag or const_time_flag != right_key.const_time_flag:
+            raise ValueError('Must __init__ with all-same const_time_flag.')
         self.secpar = secpar
         self.lp = lp
         self.left_key = left_key
-        self.left_key.const_time_flag = True
         self.right_key = right_key
-        self.right_key.const_time_flag = True
+        self.const_time_flag = const_time_flag
 
     def __getitem__(self, item: int):
         if item not in [0, 1]:
@@ -211,6 +213,7 @@ class OneTimeVerificationKey(object):
     lp: LatticeParameters
     left_key: Polynomial
     right_key: Polynomial
+    const_time_flag: bool
 
     def __init__(self, secpar: int, lp: LatticeParameters, left_key: Polynomial, right_key: Polynomial):
         if not isinstance(secpar, int) or secpar not in ALLOWABLE_SECPARS:
@@ -230,6 +233,7 @@ class OneTimeVerificationKey(object):
         self.left_key.const_time_flag = False
         self.right_key = right_key
         self.right_key.const_time_flag = False
+        self.const_time_flag = False
 
     def __getitem__(self, item: int):
         if item not in [0, 1]:
@@ -317,7 +321,7 @@ def make_random_seed(secpar: SecurityParameter, pp: PublicParameters) -> SecretS
     return SecretSeed(secpar=secpar, lp=pp['scheme_parameters'].lp, seed=seed)
 
 
-def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTuple:
+def make_one_key(pp: PublicParameters, seed: SecretSeed = None, const_time_flag: bool = True) -> OneTimeKeyTuple:
     secpar = pp['scheme_parameters'].secpar
     distribution = pp['scheme_parameters'].distribution
     lp = pp['scheme_parameters'].lp
@@ -333,7 +337,7 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
         btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
         salt=pp['sk_salt'] + 'LEFT',
         msg=x.seed,
-        const_time_flag=True
+        const_time_flag=const_time_flag
     )
     right_signing_key: PolynomialVector = hash2polynomialvector(
         secpar=secpar, lp=lp,
@@ -344,9 +348,9 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None) -> OneTimeKeyTup
         btd=bits_per_coefficient(secpar=secpar, bd=pp['sk_bd']),
         salt=pp['sk_salt'] + 'RIGHT',
         msg=x.seed,
-        const_time_flag=True
+        const_time_flag=const_time_flag
     )
-    otsk = OneTimeSigningKey(secpar=secpar, lp=lp, left_key=left_signing_key, right_key=right_signing_key)
+    otsk = OneTimeSigningKey(secpar=secpar, lp=lp, left_key=left_signing_key, right_key=right_signing_key, const_time_flag=const_time_flag)
     key_ch = pp['scheme_parameters'].key_ch
     key_ch.const_time_flag = True
     otvk = OneTimeVerificationKey(secpar=secpar, lp=lp, left_key=key_ch * left_signing_key, right_key=key_ch * right_signing_key)
@@ -444,6 +448,8 @@ def sign_core(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message) -> Signa
     if otk[1].left_key.const_time_flag != otk[1].right_key.const_time_flag:
         raise ValueError('Must either do all constant time or not, no mixing.')
     c: Challenge = challenge_core(pp=pp, otvk=otk[2], msg=msg, const_time_flag=otk[1].left_key.const_time_flag)
+    if c.const_time_flag != otk[1][0].const_time_flag:
+        raise ValueError('WTF')
     signature: Signature = otk[1][0] ** c + otk[1][1]
     return signature
 
