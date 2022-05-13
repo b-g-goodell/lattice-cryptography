@@ -156,8 +156,24 @@ MAKE_SIGN_CASES = [
 ]
 
 
+@pytest.mark.parametrize("secpar,sp,pp", MAKE_SETUP_PARAMETERS_CASES)
+def test_correct_general(secpar,sp,pp):
+    some_keys = keygen(pp=pp, num_keys_to_gen=SAMPLE_SIZE, multiprocessing=True)
+    some_msgs = [bin(randbits(secpar))[2:].zfill(secpar) for _ in range(SAMPLE_SIZE)]
+    some_sigs = [sign(pp=pp, otk=otk, msg=msg) for otk, msg in zip(some_keys, some_msgs)]
+    assert all(verify(pp=pp, otvk=otk[2], msg=msg, sig=sig) for otk, msg, sig in zip(some_keys, some_msgs, some_sigs))
+
+
+@pytest.mark.parametrize("secpar,sp,pp,j,seed,secret_seed,sk_bd,sk_wt,left_sk,right_sk,sk,left_vk,right_vk,vk,ch_bd,ch_wt,msg,sig_ch", MAKE_SIGNATURE_CHALLENGE_CASES)
+def test_correct_specific(secpar,sp,pp,j,seed,secret_seed,sk_bd,sk_wt,left_sk,right_sk,sk,left_vk,right_vk,vk,ch_bd,ch_wt,msg,sig_ch):
+    sig = sign(pp=pp, otk=(secret_seed, sk, vk), msg=msg)
+    assert verify(pp=pp, otvk=vk, msg=msg, sig=sig)
+
+
 @pytest.mark.parametrize("secpar,sp,pp,j,seed,secret_seed,sk_bd,sk_wt,left_sk,right_sk,sk,left_vk,right_vk,vk,ch_bd,ch_wt,msg,sig_ch,sig_a,valid_a,sig_b,valid_b", MAKE_SIGN_CASES)
-def test_verify(mocker, secpar, sp, pp, j, seed, secret_seed, sk_bd, sk_wt, left_sk, right_sk, sk, left_vk, right_vk, vk, ch_bd, ch_wt, msg, sig_ch, sig_a, valid_a, sig_b, valid_b):
+def test_verify(mocker,secpar,sp,pp,j,seed,secret_seed,sk_bd,sk_wt,left_sk,right_sk,sk,left_vk,right_vk,vk,ch_bd,ch_wt,msg,sig_ch,sig_a,valid_a,sig_b,valid_b):
     mocker.patch('lattice_cryptography.lm_one_time_sigs.make_challenge', return_value=sig_ch)
     assert sig_a == sig_b
     assert verify(pp=pp, otvk=vk, msg=msg, sig=sig_a)
+
+

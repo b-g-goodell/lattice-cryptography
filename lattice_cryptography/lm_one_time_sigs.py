@@ -1,5 +1,8 @@
 from lattice_algebra import LatticeParameters, Polynomial, PolynomialVector
-from lattice_cryptography.one_time_keys import SecurityParameter, PublicParameters, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, OneTimeKeyTuple, Message, Challenge, Signature, ALLOWABLE_SECPARS, SchemeParameters, UNIFORM_INFINITY_WEIGHT, make_random_seed, make_one_key, keygen_core as keygen, challenge_core as make_challenge, sign_core as sign, verify_core
+from lattice_cryptography.one_time_keys import SecurityParameter, PublicParameters, SecretSeed, OneTimeSigningKey, \
+    OneTimeVerificationKey, OneTimeKeyTuple, Message, Challenge, Signature, ALLOWABLE_SECPARS, SchemeParameters, \
+    UNIFORM_INFINITY_WEIGHT, make_random_seed, make_one_key, keygen_core as keygen, challenge_core as make_challenge, \
+    sign_core as sign, verify_core
 from typing import Dict
 
 # COMPARE THE PARAMETERS HERE WITH OUR PARAMETER ANALYSIS
