@@ -159,7 +159,6 @@ class OneTimeSigningKey(object):
     lp: LatticeParameters
     left_key: PolynomialVector
     right_key: PolynomialVector
-    const_time_flag: bool
 
     def __init__(self, secpar: int, lp: LatticeParameters, left_key: PolynomialVector, right_key: PolynomialVector, const_time_flag: bool = True):
         if not isinstance(secpar, int) or secpar not in ALLOWABLE_SECPARS:
@@ -178,7 +177,6 @@ class OneTimeSigningKey(object):
         self.lp = lp
         self.left_key = left_key
         self.right_key = right_key
-        self.const_time_flag = const_time_flag
 
     def __getitem__(self, item: int):
         if item not in [0, 1]:
@@ -213,7 +211,6 @@ class OneTimeVerificationKey(object):
     lp: LatticeParameters
     left_key: Polynomial
     right_key: Polynomial
-    const_time_flag: bool
 
     def __init__(self, secpar: int, lp: LatticeParameters, left_key: Polynomial, right_key: Polynomial):
         if not isinstance(secpar, int) or secpar not in ALLOWABLE_SECPARS:
@@ -233,7 +230,6 @@ class OneTimeVerificationKey(object):
         self.left_key.const_time_flag = False
         self.right_key = right_key
         self.right_key.const_time_flag = False
-        self.const_time_flag = False
 
     def __getitem__(self, item: int):
         if item not in [0, 1]:
@@ -297,7 +293,7 @@ class SchemeParameters(object):
         self.distribution = distribution
         if key_ch is not None:
             self.key_ch = key_ch
-            self.key_ch.const_time_flag = False
+            self.key_ch.const_time_flag = True
         elif distribution == UNIFORM_INFINITY_WEIGHT:
             self.key_ch = random_polynomialvector(
                 secpar=secpar, lp=lp, distribution=distribution, dist_pars={'bd': lp.modulus//2, 'wt': lp.degree},
@@ -352,7 +348,7 @@ def make_one_key(pp: PublicParameters, seed: SecretSeed = None, const_time_flag:
     )
     otsk = OneTimeSigningKey(secpar=secpar, lp=lp, left_key=left_signing_key, right_key=right_signing_key, const_time_flag=const_time_flag)
     key_ch = pp['scheme_parameters'].key_ch
-    key_ch.const_time_flag = True
+    key_ch.const_time_flag = const_time_flag
     otvk = OneTimeVerificationKey(secpar=secpar, lp=lp, left_key=key_ch * left_signing_key, right_key=key_ch * right_signing_key)
     return x, otsk, otvk
 
@@ -448,9 +444,9 @@ def sign_core(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message) -> Signa
     if otk[1].left_key.const_time_flag != otk[1].right_key.const_time_flag:
         raise ValueError('Must either do all constant time or not, no mixing.')
     c: Challenge = challenge_core(pp=pp, otvk=otk[2], msg=msg, const_time_flag=otk[1].left_key.const_time_flag)
-    if c.const_time_flag != otk[1][0].const_time_flag:
+    if c.const_time_flag != otk[1].left_key.const_time_flag:
         raise ValueError('WTF')
-    signature: Signature = otk[1][0] ** c + otk[1][1]
+    signature: Signature = otk[1].left_key ** c + otk[1].right_key
     return signature
 
 
