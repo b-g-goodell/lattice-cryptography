@@ -1,4 +1,4 @@
-from lattice_algebra import LatticeParameters, Polynomial
+from lattice_algebra import LatticeParameters, Polynomial, PolynomialVector
 from lattice_cryptography.one_time_keys import SecurityParameter, PublicParameters, SecretSeed, OneTimeSigningKey, OneTimeVerificationKey, OneTimeKeyTuple, Message, Challenge, Signature, ALLOWABLE_SECPARS, SchemeParameters, UNIFORM_INFINITY_WEIGHT, make_random_seed, make_one_key, keygen_core as keygen, challenge_core as make_challenge, sign_core as sign, verify_core
 from typing import Dict
 
@@ -52,5 +52,9 @@ def make_setup_parameters(secpar: SecurityParameter) -> PublicParameters:
 
 
 def verify(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, sig: Signature) -> bool:
-    target: Polynomial = otvk[0] * make_challenge(pp=pp, otvk=otvk, msg=msg) + otvk[1]
-    return verify_core(sig=sig, bd=pp['vf_bd'], wt=pp['vf_wt'], key_ch=pp['key_ch'], target=target)
+    if otvk.left_key.const_time_flag != otvk.right_key.const_time_flag:
+        raise ValueError('Cannot verify without equal const-time-flags in the verification keys.')
+    target: Polynomial = otvk.left_key * make_challenge(pp=pp, otvk=otvk, msg=msg, const_time_flag=otvk.left_key.const_time_flag) + otvk.right_key
+    key_ch: PolynomialVector = pp['scheme_parameters'].key_ch
+    key_ch.const_time_flag = target.const_time_flag
+    return verify_core(sig=sig, bd=pp['vf_bd'], wt=pp['vf_wt'], key_ch=pp['scheme_parameters'].key_ch, target=target)
