@@ -1,0 +1,56 @@
+\begin{example}
+Here is an example that appears to satisfy 128 bits of security using parameters from the paper bounds, which are known to have mistakes.
+Let $d = 64$, $q = 78593$, $\ell = 143$, $\beta_s = 76$, $\omega_s = 64$, $\beta_c = 2$, $\omega_c = 64$.
+For correctness, it is sufficient to set $\beta_v = 9804$. We use $\beta_v = 9804$.
+For unforgeability, we require the following.
+\begin{itemize}
+\item $\beta_s(1+d\beta_c) = 9804\leq \beta_v = 9804$ (True),
+\item $\secpar + 2d \log_2(q) + \ell d \log_2(2*sk_bd*(1+d*ch_bd)+1)= 131669.23304783698\leq 2\ell d \log_2(2\beta_s + 1) = 132839.22707264632$ (True),
+\item $2\beta_v + 2d\beta_c \beta_s = 39064 = \beta_{RSIS} = 39064< (q-1)/2 = 39296$ (True),
+\item We have two facts here. First, \[\frac{1}{\ell d - 1}\log_2\left(\frac{\sqrt{d}(2\beta_v + 2d\beta_c \beta_s)}{q^{1/\ell}}\right) = 0.0019822785478411827\]and also \[\frac{1}{(2(\secpar/0.265 - 1))}\log_2\left(\frac{\secpar/0.265}{2\pi e}\left(\pi \frac{\secpar}{0.265}\right)^{0.265/\secpar}\right) = 0.005024307940463218\]so this condition is True.
+\end{itemize}
+For these parameters, secret keys take $132840$ bits, or $16.605$ KB, but can be expanded from a $128$ bit seed with a secure XOF.  Verification keys take $2082$ bits, or $0.261$ KB. A single signature takes $130501$ bits, or $16.313$ KB.  A signature takes $130501$ bits, or $16.313$ KB.  So, total weight per signer is $16.573999999999998$ KB per signer.
+\end{example}
+
+\begin{example}
+Here is an example that appears to satisfy 128 bits of security using sparse keys.
+Let $d = 64$, $q = 78593$, $\ell = 143$, $\beta_s = 76$, $\omega_s = 64$, $\beta_c = 2$, $\omega_c = 64$.
+For correctness, it is sufficient to set $\beta_v = 9804$. We use $\beta_v = 9804$.
+For unforgeability, we require the following.
+\begin{itemize}
+\item $\beta_s(1+\min(d, \omega_c, \omega_s)\beta_c) = 9804\leq \beta_v = 9804$ (True),
+\item $\secpar + 2d \log_2(q) + \ell (\log_2\binom{d}{vf_wt} + vf_wt*\log_2(2*sk_bd*(1+min([d, ch_wt, sk_wt])*ch_bd)+1)= 131669.23304783698\leq 2\ell (\log_2\binom{d}{\omega_s} + \omega_s \log_2(2\beta_s + 1)) = 132839.22707264632$ (True),
+\item $2\beta_v + 2\min(d, 2\omega_c, \omega_s)\beta_c \beta_s = 39064 = \beta_{RSIS} = 39064< (q-1)/2 = 39296$ (True),
+\item We have two facts here. First, \[\frac{1}{\ell d - 1}\log_2\left(\frac{\sqrt{d}(2\beta_v + 2d\beta_c \beta_s)}{q^{1/\ell}}\right) = 0.0019822785478411827\]and also \[\frac{1}{(2(\secpar/0.265 - 1))}\log_2\left(\frac{\secpar/0.265}{2\pi e}\left(\pi \frac{\secpar}{0.265}\right)^{0.265/\secpar}\right) = 0.005024307940463218\]so this condition is True.
+\end{itemize}
+For these parameters, secret keys take $132840$ bits, or $16.605$ KB, but can be expanded from a $128$ bit seed with a secure XOF.  Verification keys take $2082$ bits, or $0.261$ KB. A single signature takes $130501$ bits, or $16.313$ KB.  A signature takes $130501$ bits, or $16.313$ KB.  So, total weight per signer is $16.573999999999998$ KB per signer.
+\end{example}
+
+\begin{example}
+Here is an example that appears to satisfy 256 bits of security using parameters from the paper bounds, which are known to have mistakes.
+Let $d = 128$, $q = 314113$, $\ell = 156$, $\beta_s = 152$, $\omega_s = 128$, $\beta_c = 2$, $\omega_c = 128$.
+For correctness, it is sufficient to set $\beta_v = 39064$. We use $\beta_v = 39064$.
+For unforgeability, we require the following.
+\begin{itemize}
+\item $\beta_s(1+d\beta_c) = 39064\leq \beta_v = 39064$ (True),
+\item $\secpar + 2d \log_2(q) + \ell d \log_2(2*sk_bd*(1+d*ch_bd)+1)= 327144.6945974319\leq 2\ell d \log_2(2\beta_s + 1) = 329578.4467103331$ (True),
+\item $2\beta_v + 2d\beta_c \beta_s = 155952 = \beta_{RSIS} = 155952< (q-1)/2 = 157056$ (True),
+\item We have two facts here. First, \[\frac{1}{\ell d - 1}\log_2\left(\frac{\sqrt{d}(2\beta_v + 2d\beta_c \beta_s)}{q^{1/\ell}}\right) = 0.0010333893585972344\]and also \[\frac{1}{(2(\secpar/0.265 - 1))}\log_2\left(\frac{\secpar/0.265}{2\pi e}\left(\pi \frac{\secpar}{0.265}\right)^{0.265/\secpar}\right) = 0.003022533962938152\]so this condition is True.
+\end{itemize}
+For these parameters, secret keys take $329579$ bits, or $41.198$ KB, but can be expanded from a $256$ bit seed with a secure XOF.  Verification keys take $4675$ bits, or $0.585$ KB. A single signature takes $324552$ bits, or $40.569$ KB.  A signature takes $324552$ bits, or $40.569$ KB.  So, total weight per signer is $41.154$ KB per signer.
+\end{example}
+
+\begin{example}
+Here is an example that appears to satisfy 256 bits of security using sparse keys.
+Let $d = 128$, $q = 314113$, $\ell = 156$, $\beta_s = 152$, $\omega_s = 128$, $\beta_c = 2$, $\omega_c = 128$.
+For correctness, it is sufficient to set $\beta_v = 39064$. We use $\beta_v = 39064$.
+For unforgeability, we require the following.
+\begin{itemize}
+\item $\beta_s(1+\min(d, \omega_c, \omega_s)\beta_c) = 39064\leq \beta_v = 39064$ (True),
+\item $\secpar + 2d \log_2(q) + \ell (\log_2\binom{d}{vf_wt} + vf_wt*\log_2(2*sk_bd*(1+min([d, ch_wt, sk_wt])*ch_bd)+1)= 327144.6945974319\leq 2\ell (\log_2\binom{d}{\omega_s} + \omega_s \log_2(2\beta_s + 1)) = 329578.4467103331$ (True),
+\item $2\beta_v + 2\min(d, 2\omega_c, \omega_s)\beta_c \beta_s = 155952 = \beta_{RSIS} = 155952< (q-1)/2 = 157056$ (True),
+\item We have two facts here. First, \[\frac{1}{\ell d - 1}\log_2\left(\frac{\sqrt{d}(2\beta_v + 2d\beta_c \beta_s)}{q^{1/\ell}}\right) = 0.0010333893585972344\]and also \[\frac{1}{(2(\secpar/0.265 - 1))}\log_2\left(\frac{\secpar/0.265}{2\pi e}\left(\pi \frac{\secpar}{0.265}\right)^{0.265/\secpar}\right) = 0.003022533962938152\]so this condition is True.
+\end{itemize}
+For these parameters, secret keys take $329579$ bits, or $41.198$ KB, but can be expanded from a $256$ bit seed with a secure XOF.  Verification keys take $4675$ bits, or $0.585$ KB. A single signature takes $324552$ bits, or $40.569$ KB.  A signature takes $324552$ bits, or $40.569$ KB.  So, total weight per signer is $41.154$ KB per signer.
+\end{example}
+

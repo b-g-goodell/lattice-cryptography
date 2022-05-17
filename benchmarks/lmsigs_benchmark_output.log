@@ -1,0 +1,61 @@
+Beginning benchmarks (multiprocessing keygen with 8 workers)
+Benchmarking for secpar = 128.
+	Parameter generation benchmarking for secpar = 128.
+		Generating parameters.
+		Elapsed time = 0.1473776570001064.
+	Key generation benchmarking for secpar = 128 without input seeds.
+		Generating 64 keys.
+		Elapsed time = 3.6443318689998705, averaging 0.056942685453122976 per item.
+	Key generation benchmarking for secpar = 128 with these random seeds.
+		Random seed generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.0004953169991495088, averaging 7.739328111711075e-06 per item.
+		Instantiating SecretSeed object with these seeds.
+		Elapsed time = 0.00012976600010006223, averaging 2.0275937515634723e-06 per item.
+		Generating keys from these SecretSeed objects.
+		Elapsed time = 3.721618329998819, averaging 0.058150286406231544 per item.
+		Total elapsed time = 3.7222434129980684, averaging 0.05816005332809482 per item.
+	Signature benchmarking for secpar = 128 with keys produced without random seeds.
+		Random message generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.0006482000007963507, averaging 1.0128125012442979e-05 per item.
+		Signing these messages with associated keys.
+		Elapsed time = 2.857580333000442, averaging 0.044649692703131905 per item.
+	Signature benchmarking for secpar = 128 with keys produced with random seeds.
+		Random message generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.000424498000938911, averaging 6.632781264670484e-06 per item.
+		Signing these messages with associated keys.
+		Elapsed time = 2.9044972830015467, averaging 0.04538277004689917 per item.
+	Verification benchmarking for secpar = 128 with keys produced without random seeds.
+		Elapsed time = 51.44439781999972, averaging 0.8038187159374957 per item.
+	Verification benchmarking for secpar = 128 with keys produced with random seeds.
+		Elapsed time = 53.97977845600144, averaging 0.8434340383750225 per item.
+Total constant time = 0.1473776570001064, total per-key time = 1.8524047167500441.
+Benchmarking for secpar = 256.
+	Parameter generation benchmarking for secpar = 256.
+		Generating parameters.
+		Elapsed time = 0.4740142279988504.
+	Key generation benchmarking for secpar = 256 without input seeds.
+		Generating 64 keys.
+		Elapsed time = 10.81403284499902, averaging 0.16896926320310968 per item.
+	Key generation benchmarking for secpar = 256 with these random seeds.
+		Random seed generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.0005646690005960409, averaging 8.822953134313138e-06 per item.
+		Instantiating SecretSeed object with these seeds.
+		Elapsed time = 0.0001868960007413989, averaging 2.9202500115843577e-06 per item.
+		Generating keys from these SecretSeed objects.
+		Elapsed time = 11.097028505999333, averaging 0.17339107040623958 per item.
+		Total elapsed time = 11.09778007100067, averaging 0.17340281360938548 per item.
+	Signature benchmarking for secpar = 256 with keys produced without random seeds.
+		Random message generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.0005738879990531132, averaging 8.966999985204893e-06 per item.
+		Signing these messages with associated keys.
+		Elapsed time = 6.12490665400037, averaging 0.09570166646875577 per item.
+	Signature benchmarking for secpar = 256 with keys produced with random seeds.
+		Random message generation benchmarking for 64 new random bitstrings.
+		Elapsed time = 0.0005615970003418624, averaging 8.7749531303416e-06 per item.
+		Signing these messages with associated keys.
+		Elapsed time = 6.812559948000853, averaging 0.10644624918751333 per item.
+	Verification benchmarking for secpar = 256 with keys produced without random seeds.
+		Elapsed time = 213.81091772800028, averaging 3.3407955895000043 per item.
+	Verification benchmarking for secpar = 256 with keys produced with random seeds.
+		Elapsed time = 207.84432687499975, averaging 3.247567607421871 per item.
+Total constant time = 0.6213918849989568, total per-key time = 8.9853056480938.

@@ -9,7 +9,7 @@ from typing import List, Any
 from secrets import randbelow
 
 # Benchmarking params
-SAMPLE_SIZE: int = 2 ** 4
+SAMPLE_SIZE: int = 2 ** 6
 allowable_secpars = [128, 256]
 multiprocessing: bool = True  # << Set to False to disable multiprocessing (WIP)
 
@@ -28,7 +28,8 @@ else:
 def flatten(some_nested_list: List[List[Any]]) -> List[Any]:
     return [item for sublist in some_nested_list for item in sublist]
 
-
+time_per_key = 0.0
+const_time = 0.0
 # Benchmark parameter setup
 for secpar in allowable_secpars:
     print(f"Benchmarking for secpar = {secpar}.")
@@ -37,13 +38,15 @@ for secpar in allowable_secpars:
     start = timer()
     pp = make_setup_parameters(secpar=secpar)
     end = timer()
+    const_time += end - start
     print(f"\t\tElapsed time = {end - start}.")
 
     print(f"\tKey generation benchmarking for secpar = {secpar} without input seeds.")
     print(f"\t\tGenerating {SAMPLE_SIZE} keys.  ")
     start = timer()
-    some_keys_without_seeds = keygen(pp=pp, num_keys_to_gen=SAMPLE_SIZE, multiprocessing=multiprocessing)
+    some_keys_without_seeds = keygen(pp=pp, num=SAMPLE_SIZE, multiprocessing=multiprocessing)
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     time_with_seeds = 0.
@@ -53,6 +56,7 @@ for secpar in allowable_secpars:
     some_seed_strings = [bin(randbelow(2 ** secpar))[2:].zfill(secpar) for _ in range(SAMPLE_SIZE)]
     end = timer()
     time_with_seeds += end - start
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\t\tInstantiating SecretSeed object with these seeds.  ")
@@ -61,13 +65,15 @@ for secpar in allowable_secpars:
                   some_seed_strings]
     end = timer()
     time_with_seeds += end - start
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\t\tGenerating keys from these SecretSeed objects.")
     start = timer()
-    some_keys_with_seeds = keygen(pp=pp, num_keys_to_gen=SAMPLE_SIZE, seeds=some_seeds, multiprocessing=multiprocessing)
+    some_keys_with_seeds = keygen(pp=pp, num=SAMPLE_SIZE, seeds=some_seeds, multiprocessing=multiprocessing)
     end = timer()
     time_with_seeds += end - start
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
     print(f"\t\tTotal elapsed time = {time_with_seeds}, averaging {time_with_seeds / SAMPLE_SIZE} per item.")
 
@@ -76,6 +82,7 @@ for secpar in allowable_secpars:
     start = timer()
     some_msgs_for_keys_without_seeds = [bin(randbelow(2 ** secpar))[2:].zfill(secpar) for _ in range(SAMPLE_SIZE)]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\t\tSigning these messages with associated keys.  ")
@@ -88,6 +95,7 @@ for secpar in allowable_secpars:
     else:
         some_sigs_for_keys_without_seeds = [sign(*args) for args in sign_input_tuples]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\tSignature benchmarking for secpar = {secpar} with keys produced with random seeds.")
@@ -95,6 +103,7 @@ for secpar in allowable_secpars:
     start = timer()
     some_msgs_for_keys_with_seeds = [bin(randbelow(2 ** secpar))[2:].zfill(secpar) for _ in range(SAMPLE_SIZE)]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\t\tSigning these messages with associated keys.  ")
@@ -106,6 +115,7 @@ for secpar in allowable_secpars:
     else:
         some_sigs_for_keys_with_seeds = [sign(*args) for args in sign_input_tuples]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\tVerification benchmarking for secpar = {secpar} with keys produced without random seeds.  ")
@@ -121,6 +131,7 @@ for secpar in allowable_secpars:
     else:
         results_without_seeds = [verify(*args) for args in verify_input_tuples]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     print(f"\tVerification benchmarking for secpar = {secpar} with keys produced with random seeds.  ")
@@ -134,7 +145,9 @@ for secpar in allowable_secpars:
     else:
         results_with_seeds = [verify(*args) for args in verify_input_tuples]
     end = timer()
+    time_per_key += (end - start) / SAMPLE_SIZE
     print(f"\t\tElapsed time = {end - start}, averaging {(end - start) / SAMPLE_SIZE} per item.")
 
     # Should get all true
     assert all(_ for _ in results_with_seeds + results_without_seeds)
+    print(f"Total constant time = {const_time}, total per-key time = {time_per_key}.")

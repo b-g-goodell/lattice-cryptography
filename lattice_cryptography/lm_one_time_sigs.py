@@ -32,17 +32,17 @@ LPs[128] = LatticeParameters(
     degree=2 ** 6,
     length=143)
 LPs[256] = LatticeParameters(
-    modulus=355841,
-    degree=2 ** 8,
-    length=90)
+    modulus=314113,
+    degree=2 ** 7,
+    length=156)
 
 BDs: Dict[int, Dict[str, int]] = dict()
 BDs[128] = {
     'sk_bd': 76,
     'ch_bd': 2}
 BDs[256] = {
-    'sk_bd': 172,
-    'ch_bd': 1}
+    'sk_bd': 152,
+    'ch_bd': 2}
 
 WTs: Dict[int, Dict[str, int]] = dict()
 WTs[128] = {'sk_wt': LPs[128].degree, 'ch_wt': LPs[128].degree}
