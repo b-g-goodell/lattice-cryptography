@@ -9,7 +9,7 @@ from typing import List, Any
 from secrets import randbelow
 
 # Benchmarking params
-SAMPLE_SIZE: int = 2 ** 8
+SAMPLE_SIZE: int = 2 ** 4
 allowable_secpars = [128, 256]
 multiprocessing: bool = True  # << Set to False to disable multiprocessing (WIP)
 

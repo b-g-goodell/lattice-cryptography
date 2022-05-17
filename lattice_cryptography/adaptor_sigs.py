@@ -198,8 +198,8 @@ def presign(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message, st: OneTim
 def preverify(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, st: OneTimePublicStatement,
               presig: PreSignature) -> bool:
     presig.const_time_flag = True  # verifying pre-signatures in non-constant time
-    cnws = presig.get_coef_rep()
-    n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
+    nw = presig.get_coef_rep()
+    n, w = max(i[1] for i in nw), max(i[2] for i in nw)
     if n > pp['pvf_bd'] or w > pp['pvf_wt']:
         return False
 
@@ -228,8 +228,8 @@ def extract(pp: PublicParameters, presig: PreSignature, sig: Signature) -> OneTi
 
 def witness_verify(pp: PublicParameters, wit: OneTimeSecretWitness, st: OneTimePublicStatement) -> bool:
     wit.const_time_flag = True  # keep true to ensure timing attacks can't be used to extract witnesses
-    cnws = wit.key.get_coef_rep()
-    n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
+    nw = wit.key.get_coef_rep()
+    n, w = max(i[1] for i in nw), max(i[2] for i in nw)
     if n > pp['ext_wit_bd'] or w > pp['ext_wit_wt']:
         return False
 
@@ -247,8 +247,8 @@ def sign(pp: PublicParameters, otk: OneTimeKeyTuple, msg: Message, wit_st_pair: 
 def verify(pp: PublicParameters, otvk: OneTimeVerificationKey, msg: Message, st: OneTimePublicStatement,
            sig: Signature) -> bool:
     sig.const_time_flag = True
-    cnws = sig.get_coef_rep()
-    n, w = max(i[1] for i in cnws), max(i[2] for i in cnws)
+    nw = sig.get_coef_rep()
+    n, w = max(i[1] for i in nw), max(i[2] for i in nw)
     if n > pp['vf_bd'] or w > pp['vf_wt']:
         return False
 
