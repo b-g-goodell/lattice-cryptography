@@ -16,7 +16,6 @@ from lattice_cryptography.lm_one_time_sigs import \
     DSTN, \
     Msg, \
     Sig, \
-    OTK, \
     make_setup_parameters, \
     keygen, \
     sign, \
