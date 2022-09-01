@@ -1,13 +1,15 @@
-from math import ceil, floor
+from math import ceil, floor, log2
 from copy import deepcopy
-from lattice_algebra import Polynomial, PolynomialVector
+from typing import Any
+from lattice_algebra import LatticeParameters, Polynomial, PolynomialVector
 
 ALLOWABLE_SECURITY_PARAMETERS: list[int] = [512, 768, 1024]
-PARAMS: dict[int, dict[str, int]] = {
-    512: {'n': 256, 'k': 2, 'q': 3329, 'eta_one': 3, 'eta_two': 2, 'd_u': 10, 'd_v': 4, 'log_delta': -139},
-    768: {'n': 256, 'k': 3, 'q': 3329, 'eta_one': 2, 'eta_two': 2, 'd_u': 10, 'd_v': 4, 'log_delta': -164},
-    1024: {'n': 256, 'k': 4, 'q': 3329, 'eta_one': 2, 'eta_two': 2, 'd_u': 11, 'd_v': 5, 'log_delta': -174}
+PARAMS: dict[int, dict[str, Any]] = {
+    512: {'n': 256, 'k': 2, 'q': 3329, 'eta_one': 3, 'eta_two': 2, 'd_u': 10, 'd_v': 4, 'log_delta': -139, 'lp': LatticeParameters(degree=256, length=2, modulus=3329)},
+    768: {'n': 256, 'k': 3, 'q': 3329, 'eta_one': 2, 'eta_two': 2, 'd_u': 10, 'd_v': 4, 'log_delta': -164, 'lp': LatticeParameters(degree=256, length=3, modulus=3329)},
+    1024: {'n': 256, 'k': 4, 'q': 3329, 'eta_one': 2, 'eta_two': 2, 'd_u': 11, 'd_v': 5, 'log_delta': -174, 'lp': LatticeParameters(degree=256, length=4, modulus=3329)}
 }
+
 ENCODED_CPA_PKE_SK_LEN: dict[int, int] = {
     security_parameter: 12 * PARAMS[security_parameter]['k'] * PARAMS[security_parameter]['n'] / 8 
     for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
@@ -26,6 +28,14 @@ ENCODED_CCA_KEM_CIPHERTEXT_LEN: dict[int, int] = {
     security_parameter: (PARAMS[security_parameter]['d_u']*PARAMS[security_parameter]['k'] +
                          PARAMS[security_parameter]['d_v'])*PARAMS[security_parameter]['n']/8
     for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
+
+
+def XOF(x: bytes) -> bytes:
+    pass
+
+
+def PRF(x: bytes) -> bytes:
+    pass
 
 
 def compress_int(q: int, d: int, x: int) -> int:
@@ -108,7 +118,7 @@ def cpa_pke_keygen(security_parameter: int) -> bytes:
     pass
 
 
-def cpa_pke_encrypt(security_parameter: int, pk: bytes, m: bytes, r: bytes) -> bytes:
+def cpa_pke_encrypt(security_parameter: int, pk: bytes, m: bytes, seed_r: bytes) -> bytes:
     if security_parameter not in ALLOWABLE_SECURITY_PARAMETERS:
         raise ValueError(
             f'Must have security_parameter={security_parameter} in ALLOWABLE_SECURITY_PARAMETERS=' +
@@ -124,12 +134,16 @@ def cpa_pke_encrypt(security_parameter: int, pk: bytes, m: bytes, r: bytes) -> b
     elif len(m) < 32:
         raise ValueError(
             f'Encoded Kyber-CPA-PKE{security_parameter} messages must be at least 32 bytes, but had len(m)={len(m)}.')
-    elif not isinstance(r, bytes):
-        raise ValueError(f'Input random coins must be a string but had type(r)={type(r)}.')
-    elif len(r) < 32:
+    elif not isinstance(seed_r, bytes):
+        raise ValueError(f'Input random coins must be a string but had type(r)={type(seed_r)}.')
+    elif len(seed_r) < 32:
         raise ValueError(
             f'Encoded Kyber-CPA-PKE{security_parameter} random coins need to be at least 32 bytes long, but had' +
-            f'len(r)={len(r)}.')
+            f'len(r)={len(seed_r)}.')
+    N: int = 0
+    decoded_pk: PolynomialVector = decode_vector(j=12, x=pk[:-32])
+    rho: bytes = pk[-32:]
+    A: list[PolynomialVector] = []
     pass
 
 
