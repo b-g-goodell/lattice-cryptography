@@ -31,22 +31,22 @@ ENCODED_CCA_KEM_PK_LEN: dict[int, int] = deepcopy(ENCODED_CPA_PKE_PK_LEN)
 ENCODED_CCA_KEM_CIPHERTEXT_LEN: dict[int, int] = {security_parameter: (PARAMS[security_parameter]['d_u']*PARAMS[security_parameter]['k'] + PARAMS[security_parameter]['d_v'])*DEGREE/8 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
 
 
-def bit_rev(l: int, x: int) -> int:
-    if isinstance(l, int) and l >= 1 and isinstance(x, int) and 0 <= x < 2**l:
-        return int(bin(x)[2:].zfill(l)[::-1], 2)
-    raise ValueError(f'Cannot reverse the bit string for x with num_bits={l} unless 0 <= x < 2**num_bits, but x={x}.')
+def bit_rev(x: int, length: int) -> int:
+    if isinstance(length, int) and length >= 1 and isinstance(x, int) and 0 <= x < 2**length:
+        return int(bin(x)[2:].zfill(length)[::-1], 2)
+    raise ValueError(f'Cannot compute bit_rev for x, length unless length is an integer with length >= 1 and x is an length-bit integer, but had (x,length)={(x, length)}.')
 
 
 def is_pow_two(x: int) -> bool:
     if isinstance(x, int) and x > 0:
         return not (x & (x - 1))
-    raise False
+    return False
 
 
-def bit_rev_cp(x: list[int], n: int) -> list[int]:
-    if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(n, int) and ceil(log2(len(x))) == n and is_pow_two(len(x)):
-        return [x[bit_rev(l=n, x=i)] for i in range(len(x))]
-    raise ValueError(f'Can only bit-reverse-copy arrays with integer power-of-two lengths but had len(x)={len(x)}.')
+def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
+    if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(num_bits, int) and num_bits >= 1 and len(x) == 2**num_bits:
+        return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
+    raise ValueError(f'Cannot compute bit_reverse_cp for x, num_bits unless x is a list of integers, num_bits is an integer with num_bits >= 1, and the len(x)==2**num_bits, but had (x,num_bits)={(x, num_bits)}.')
 
 
 def cent_rem(x: int) -> int:
@@ -54,12 +54,12 @@ def cent_rem(x: int) -> int:
         y: int = x % MODULUS
         z: int = y - HALF_MODULUS - 1
         return y - (1 + (z >> LOG_MODULUS)) * MODULUS
-    raise ValueError('Cannot compute cent_rem for a non-integer.')
+    raise ValueError(f'Cannot compute cent_rem for x unless x is an integer, but had x={x}.')
 
 
 def ntt(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
     if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and is_pow_two(len(x)):
-        bit_rev_x: list[int] = bit_rev_cp(x=x, n=ceil(log2(len(x))))
+        bit_rev_x: list[int] = bit_rev_cp(x=x, num_bits=ceil(log2(len(x))))
         m: int = 1
         for s in range(1, LOG_TWICE_DEGREE + 1):
             m *= 2
@@ -93,41 +93,41 @@ def ntt(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
                 bit_rev_x: list[int] = [(n_inv * i) % MODULUS for i in bit_rev_x]
                 bit_rev_x = [i if i <= HALF_MODULUS else i - MODULUS for i in bit_rev_x]
         return bit_rev_x
-    raise ValueError("Can only NTT arrays with lengths that are powers of two.")
+    raise ValueError(f'Cannot compute ntt for x, inv_flag, const_time unless x is a list of integers, inv_flag and const_time are both boolean, and x has power-of-two-length, but had (x, inv_flag, const_time)={(x, inv_flag, const_time)}.')
 
 
-def encode(x: list[int], l: int) -> bytes:
-    if isinstance(l, int) and l >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == DEGREE and all(0 <= y < 2**l for y in x):
-        return sum(bin(z)[2:].zfill(l).encode() for z in x)
-    raise ValueError()
+def encode(x: list[int], num_bits: int) -> bytes:
+    if isinstance(num_bits, int) and num_bits >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == DEGREE and all(0 <= y < 2 ** num_bits for y in x):
+        return sum(bin(z)[2:].zfill(num_bits).encode() for z in x)
+    raise ValueError(f'Cannot compute encode for x, num_bits unless num_bits is an integer with num_bits >= 1, x is a list of integers, x has length {DEGREE}, and each entry in x is an num_bits-bit integer, but had (x,num_bits)={(x, num_bits)}.')
 
 
-def decode(x: bytes, l: int):
-    if isinstance(x, bytes) and isinstance(l, int) and l >= 1 and len(x) >= 32*l:
+def decode(x: bytes, num_32_bytes: int):
+    if isinstance(x, bytes) and isinstance(num_32_bytes, int) and num_32_bytes >= 1 and len(x) >= 32*num_32_bytes:
         y: str = x.decode()
-        if len(y) == DEGREE * l:
-            return [int(y[i*l: (i+1)*l], 2) % 2**l for i in range(DEGREE)]
-    raise ValueError()
+        if len(y) == DEGREE * num_32_bytes:
+            return [int(y[i * num_32_bytes: (i + 1) * num_32_bytes], 2) % 2 ** num_32_bytes for i in range(DEGREE)]
+    raise ValueError(f'Cannot compute decode for x, num_32_bytes unless x is a bytes object, num_32_bytes is an integer with num_32_bytes >= 1, and x has at least 32*num_32_bytes bytes, but had (type(x), len(x), num_32_bytes)={(type(x), len(x), num_32_bytes)}.')
 
 
-def compress_int(d: int, x: int) -> int:
-    if isinstance(d, int) and d >= 1 and isinstance(x, int):
-        y: float = (x % MODULUS) * (2**d / MODULUS)
+def compress_int(x: int, num_bits: int) -> int:
+    if isinstance(x, int) and isinstance(num_bits, int) and num_bits >= 1:
+        y: float = (x % MODULUS) * (2 ** num_bits / MODULUS)
         ceil_y: int = ceil(y)
         if ceil_y - y <= 0.5:
-            return ceil_y % 2**d
-        return floor(y) % 2**d
-    raise ValueError()
+            return ceil_y % 2 ** num_bits
+        return floor(y) % 2 ** num_bits
+    raise ValueError(f'Cannot compute compress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1, but had (x, num_bits)={(x, num_bits)}.')
 
 
-def decompress_int(d: int, x: int) -> int:
-    if isinstance(d, int) and d >= 1 and isinstance(x, int) and 0 <= x < 2**d:
-        y: float = x * (MODULUS/2**d)
+def decompress_int(x: int, num_bits: int) -> int:
+    if isinstance(num_bits, int) and num_bits >= 1 and isinstance(x, int) and 0 <= x < 2**num_bits:
+        y: float = x * (MODULUS / 2 ** num_bits)
         ceil_y: int = ceil(y)
         if ceil_y - y <= 0.5:
             return ceil_y
         return floor(y)
-    raise ValueError()
+    raise ValueError(f'Cannot compute decompress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1 and x is a num_bits-bit integer, but had (x, num_bits)={(x, num_bits)}.')
 
 
 class PolynomialMatrix(object):
@@ -138,161 +138,92 @@ class PolynomialMatrix(object):
     vals: list[list[list[int]]]
     const_time: bool = True
 
-    def __init__(self, modulus: int, degree: int, vals: list[list[list[int]]] | None):
-        if isinstance(modulus, int) and modulus >= 1 and isinstance(degree, int) and degree >= 1 and isinstance(vals, list) and all(isinstance(y, list) for y in vals) and all(isinstance(y, list) for i in vals for y in i) and all(isinstance(y, list) for i in vals for u in i for y in u) and all(isinstance(y, int) for i in vals for u in i for v in u for y in v) and vals is not None:
+    def __init__(self, vals: list[list[list[int]]], modulus: int, degree: int):
+        if isinstance(modulus, int) and modulus >= 1 and isinstance(degree, int) and degree >= 1 and isinstance(vals, list) and all(isinstance(y, list) for y in vals) and all(isinstance(y, list) for i in vals for y in i) and all(isinstance(y, int) for i in vals for u in i for v in u for y in v):
             self.modulus = modulus
             self.degree = degree
             self.halfmod = modulus//2
             self.logmod = ceil(log2(modulus))
             self.vals = vals
-        raise ValueError()
+        raise ValueError(f'Cannot initialize a PolynomialMatrix object with vald, modulus, degree unless modulus and degree are both integers with modulus >= 1 and degree >= 1 and vals is a list of lists of lists of integers, but had (vals, modulus, degree)={(vals, modulus, degree)}.')
 
 
 class PolynomialCoefficientMatrix(PolynomialMatrix):
-    def __init__(self, modulus: int, degree: int, vals: list[list[list[int]]] | None):
-        super().__init__(modulus=modulus, degree=degree, vals=vals)
+    def __init__(self, vals: list[list[list[int]]] | None, modulus: int, degree: int):
+        super().__init__(vals=vals, modulus=modulus, degree=degree)
 
     def ntt(self) -> PolynomialMatrix:
-        # call this to set self.ntt_reps to the NTT representation of the coefficient representation
+        # Note: inv_flag input to ntt is False
         ntt_reps = []
         for row in self.vals:
             ntt_reps += [[]]
             for col in row:
                 ntt_reps[-1] += [ntt(x=col, inv_flag=False, const_time=self.const_time)]
-        return PolynomialNTTMatrix(modulus=self.modulus, degree=self.degree, vals=ntt_reps)
+        return PolynomialNTTMatrix(vals=ntt_reps, modulus=self.modulus, degree=self.degree)
 
     def __add__(self, other):
-        # num_rows_in_self: int = len(self.ntt_reps)
-        # min_cols_in_self: int = min(len(x) for x in self.ntt_reps)
-        # max_cols_in_self: int = max(len(x) for x in self.ntt_reps)
-        # consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-        # min_deg_in_self: int = min(len(x) for i in self.ntt_reps for x in i)
-        # max_deg_in_self: int = max(len(x) for i in self.ntt_reps for x in i)
-        # consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-        # num_rows_in_other: int = len(other.ntt_reps)
-        # min_cols_in_other: int = min(len(x) for x in other.ntt_reps)
-        # max_cols_in_other: int = max(len(x) for x in other.ntt_reps)
-        # consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
-        # min_deg_in_other: int = min(len(x) for i in other.ntt_reps for x in i)
-        # max_deg_in_other: int = max(len(x) for i in other.ntt_reps for x in i)
-        # consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
-        # same_rows: bool = num_rows_in_self == num_rows_in_other
-        # same_cols: bool = max_cols_in_self == max_cols_in_other
-        # same_deg: bool = max_deg_in_self == max_deg_in_other
-        # if same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-        #     result = deepcopy(self)
-        #     for i, row in enumerate(other.ntt_reps):
-        #         for j, col in enumerate(other.ntt_reps):
-        #             for k, x in enumerate(other.ntt_reps):
-        #                 result.vals[i][j][k] = cent_rem(x=result.vals[i][j][k] + x)
-        #     return result
-        # elif not consistent_cols_in_self or not consistent_deg_in_self or not consistent_cols_in_other or not consistent_deg_in_other:
-        #     raise ValueError('Input matrices are not consistently sized.')
-        # else:
-        #     raise ValueError('Dimension mismatch.')
-        raise ValueError('Warning: You are trying to do arithmetic with a PolynomialCoefficientMatrix, which is much slower than arithmetic with a PolynomialNTTMatrix. Consider creating the associated PolynomialNTTMatrix with self.ntt() before performing arithmetic.')
+        raise ValueError('Addition with PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
     def __radd__(self, other):
-        if other == 0:
-            return self
-        return self.__add__(other=other)
+        raise ValueError('Addition with PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
     def __sub__(self, other):
-        negative_other = deepcopy(other)
-        negative_other.ntt_reps = [[[-coef for coef in col] for col in row] for row in other.ntt_reps]
-        return self.__add__(other=other)
+        raise ValueError('Subtraction with PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
     def __mul__(self, other):
-        # num_rows_in_self: int = len(self.ntt_reps)
-        # min_cols_in_self: int = min(len(x) for x in self.ntt_reps)
-        # max_cols_in_self: int = max(len(x) for x in self.ntt_reps)
-        # consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-        # min_deg_in_self: int = min(len(x) for i in self.ntt_reps for x in i)
-        # max_deg_in_self: int = max(len(x) for i in self.ntt_reps for x in i)
-        # consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-        # num_rows_in_other: int = len(other.ntt_reps)
-        # min_cols_in_other: int = min(len(x) for x in other.ntt_reps)
-        # max_cols_in_other: int = max(len(x) for x in other.ntt_reps)
-        # consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
-        # min_deg_in_other: int = min(len(x) for i in other.ntt_reps for x in i)
-        # max_deg_in_other: int = max(len(x) for i in other.ntt_reps for x in i)
-        # consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
-        # same_deg: bool = max_deg_in_self == max_deg_in_other
-        # if num_rows_in_self == 1 and consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == 1 and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-        #     return self._scalar_mul(other=other)
-        # elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-        #     return self._matrix_mul(other=other)
-        # else:
-        #     raise ValueError('Can only multiply matrices A*B where A is 1x1 and both have consistent degrees, or where A is mxn, B is nxp, and both have consistent degrees.')
-        raise ValueError('Warning: You are trying to do arithmetic with a PolynomialCoefficientMatrix, which is much slower than arithmetic with a PolynomialNTTMatrix. Consider creating the associated PolynomialNTTMatrix with self.ntt() before performing arithmetic.')
+        raise ValueError('Multiplication with PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
-    # def _scalar_mul(self, other):
-    #     result = deepcopy(other)
-    #     for i in range(len(other.ntt_reps)):
-    #         for j in range(len(other.ntt_reps[0])):
-    #             for k in range(len(self.ntt_reps[0][0])):
-    #                 result.ntt_reps[i][j][k] = cent_rem(x=self.ntt_reps[0][0][k] * other.ntt_reps[i][j][k])
-    #     return result
-    #
-    # def _matrix_mul(self, other):
-    #     result = deepcopy(self)
-    #     result.ntt_reps = [[[0 for k in range(len(self.ntt_reps[0][0]))] for j in range(len(other.ntt_reps[0]))] for
-    #                        i in range(len(self.ntt_reps))]
-    #     for i in range(len(self.ntt_reps)):
-    #         for j in range(len(other.ntt_reps[0])):
-    #             for k in range(len(self.ntt_reps[0][0])):
-    #                 result.ntt_reps[i][j][k] = cent_rem(x=sum(
-    #                     self.ntt_reps[i][l][k] * other.ntt_reps[l][j][k] for l in range(len(self.ntt_reps[0]))))
-    #     return result
+    def _scalar_mul(self, other):
+        raise ValueError('Scalar multiplication of PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
-    def encode(self, l: int) -> bytes:
-        if isinstance(l, int) and l >= 1:
-            return sum(encode(x=y, l=l) for i in self.vals for y in i)
-        raise ValueError()
+    def _matrix_mul(self, other):
+        raise ValueError('Matrix multiplication of PolynomialCoefficientMatrix is not implemented. Perform arithmetic only with PolynomialNTTMatrix.')
 
-    # def encode_ntt_reps(self, l: int) -> bytes:
-    #     if isinstance(l, int) and l >= 1:
-    #         return sum(encode(x=y, l=l) for i in self.ntt_reps for y in i)
-    #     raise ValueError()
+    def encode(self, num_bits: int) -> bytes:
+        if isinstance(num_bits, int) and num_bits >= 1:
+            return sum(encode(x=y, num_bits=num_bits) for i in self.vals for y in i)
+        raise ValueError(f'Cannot compute PolynomialCoefficientMatrix.encode with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
-    def compress(self, d: int):
-        if isinstance(d, int) and d >= 1:
+    def compress(self, num_bits: int):
+        if isinstance(num_bits, int) and num_bits >= 1:
             for i, row in enumerate(self.vals):
                 for j, col in enumerate(row):
                     for k, coef in enumerate(col):
-                        self.vals[i][j][k] = compress_int(d=d, x=coef)
-        raise ValueError('')
+                        self.vals[i][j][k] = compress_int(x=coef, num_bits=num_bits)
+        raise ValueError(f'Cannot compute PolynomialCoefficientMatrix.compress with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
-    def decompress(self, d: int):
-        if isinstance(d, int) and d >= 1:
+    def decompress(self, num_bits: int):
+        if isinstance(num_bits, int) and num_bits >= 1:
             for i, row in enumerate(self.vals):
                 for j, col in enumerate(row):
                     for k, coef in enumerate(col):
-                        self.vals[i][j][k] = decompress_int(d=d, x=coef)
-        raise ValueError('')
+                        self.vals[i][j][k] = decompress_int(x=coef, num_bits=num_bits)
+        raise ValueError(f'Cannot compute PolynomialCoefficientMatrix.decompress with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
 
 class PolynomialNTTMatrix(PolynomialMatrix):
-    def __init__(self, modulus: int, degree: int, vals: list[list[list[int]]] | None):
-        super().__init__(modulus=modulus, degree=degree, vals=vals)
+    def __init__(self, vals: list[list[list[int]]] | None, modulus: int, degree: int):
+        super().__init__(vals=vals, modulus=modulus, degree=degree)
 
-    def intt(self) -> PolynomialMatrix:
-        # call this to set self.coef_reps to the coefficient representation of the NTT representation
+    def inv_ntt(self) -> PolynomialMatrix:
+        # Note: inv_flag input to ntt is True.
         result = []
         for row in self.vals:
             result += [[]]
             for col in row:
                 result += [ntt(x=col, inv_flag=True, const_time=self.const_time)]
-        return PolynomialCoefficientMatrix(modulus=self.modulus, degree=self.degree, vals=result)
+        return PolynomialCoefficientMatrix(vals=result, modulus=self.modulus, degree=self.degree)
 
     def __add__(self, other):
         num_rows_in_self: int = len(self.vals)
         min_cols_in_self: int = min(len(x) for x in self.vals)
         max_cols_in_self: int = max(len(x) for x in self.vals)
         consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
+
         min_deg_in_self: int = min(len(x) for i in self.vals for x in i)
         max_deg_in_self: int = max(len(x) for i in self.vals for x in i)
         consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
+
         num_rows_in_other: int = len(other.vals)
         min_cols_in_other: int = min(len(x) for x in other.vals)
         max_cols_in_other: int = max(len(x) for x in other.vals)
@@ -311,9 +242,8 @@ class PolynomialNTTMatrix(PolynomialMatrix):
                         result.vals[i][j][k] = cent_rem(x=result.vals[i][j][k] + x)
             return result
         elif not consistent_cols_in_self or not consistent_deg_in_self or not consistent_cols_in_other or not consistent_deg_in_other:
-            raise ValueError('Input matrices are not consistently sized.')
-        else:
-            raise ValueError('Dimension mismatch.')
+            raise ValueError(f'Cannot compute PolynomialNTTMatrix.__add__ unless there are a consistent number of columns and degree in both self and other.')
+        raise ValueError(f'Cannot compute PolynomialNTTMatrix.__add__ unless dimensions of both matrices match (dim mismatch). Check if number of rows, number of columns, and degrees all match.')
 
     def __radd__(self, other):
         if other == 0:
@@ -345,8 +275,7 @@ class PolynomialNTTMatrix(PolynomialMatrix):
             return self._scalar_mul(other=other)
         elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
             return self._matrix_mul(other=other)
-        else:
-            raise ValueError('Can only multiply matrices A*B where A is 1x1 and both have consistent degrees, or where A is mxn, B is nxp, and both have consistent degrees.')
+        raise ValueError('Cannot compute PolynomialNTTMatrix.__mul__ with unless self is 1x1 and both have consistent degrees, or where self is mxn, other is nxp, and both have consistent degrees (dim mismatch).')
 
     def _scalar_mul(self, other):
         result = deepcopy(other)
@@ -366,94 +295,99 @@ class PolynomialNTTMatrix(PolynomialMatrix):
                         self.vals[i][l][k] * other.ntt_reps[l][j][k] for l in range(len(self.vals[0]))))
         return result
 
-    def encode(self, l: int) -> bytes:
-        if isinstance(l, int) and l >= 1:
-            return sum(encode(x=y, l=l) for i in self.vals for y in i)
-        raise ValueError()
+    def encode(self, num_bits: int) -> bytes:
+        if isinstance(num_bits, int) and num_bits >= 1:
+            return sum(encode(x=y, num_bits=num_bits) for i in self.vals for y in i)
+        raise ValueError(f'Cannot compute PolynomialNTTMatrix.encode with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
-    def compress(self, d: int):
-        if isinstance(d, int) and d >= 1:
+    def compress(self, num_bits: int):
+        if isinstance(num_bits, int) and num_bits >= 1:
             for i, row in enumerate(self.vals):
                 for j, col in enumerate(row):
                     for k, coef in enumerate(col):
-                        self.vals[i][j][k] = compress_int(d=d, x=coef)
-        raise ValueError('')
+                        self.vals[i][j][k] = compress_int(x=coef, num_bits=num_bits)
+        raise ValueError(f'Cannot compute PolynomialNTTMatrix.compress with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
-    def decompress(self, d: int):
-        if isinstance(d, int) and d >= 1:
+    def decompress(self, num_bits: int):
+        if isinstance(num_bits, int) and num_bits >= 1:
             for i, row in enumerate(self.vals):
                 for j, col in enumerate(row):
                     for k, coef in enumerate(col):
-                        self.vals[i][j][k] = decompress_int(d=d, x=coef)
-        raise ValueError('')
+                        self.vals[i][j][k] = decompress_int(x=coef, num_bits=num_bits)
+        raise ValueError(f'Cannot compute PolynomialNTTMatrix.decompress with num_bits unless num_bits is an integer with num_bits >= 1, but had num_bits={num_bits}.')
 
 
-def decode_coefficient_matrix(x: bytes, l: int, num_rows: int, num_cols: int, modulus: int) -> PolynomialCoefficientMatrix:
-    if isinstance(x, bytes) and isinstance(l, int) and l >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1 and isinstance(modulus, int) and modulus >= 1 and len(x) >= l*num_rows*num_cols*32:
+def decode_coefficient_matrix(x: bytes, num_32_bytes: int, num_rows: int, num_cols: int, modulus: int) -> PolynomialCoefficientMatrix:
+    if isinstance(x, bytes) and isinstance(num_32_bytes, int) and num_32_bytes >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1 and isinstance(modulus, int) and modulus >= 1 and len(x) >= num_32_bytes*num_rows*num_cols*32:
         y = deepcopy(x)
         resulting_coef_reps: list[list[list[int]]] = []
         for i in range(num_rows):
             resulting_coef_reps += [[]]
             for j in range(num_cols):
-                z, y = y[:32*l], y[32*l:]
-                w = decode(x=z, l=l)
+                z, y = y[:32 * num_32_bytes], y[32 * num_32_bytes:]
+                w = decode(x=z, num_32_bytes=num_32_bytes)
                 resulting_coef_reps[-1] += [w]
-        return PolynomialCoefficientMatrix(modulus=modulus, degree=DEGREE, vals=resulting_coef_reps)
-    raise ValueError('Input does not have enough bytes to decode to a PolynomialMatrix.')
+        return PolynomialCoefficientMatrix(vals=resulting_coef_reps, modulus=modulus, degree=DEGREE)
+    raise ValueError(f'Cannot compute decode_coefficient_matrix with x, num_32_bytes, num_rows, num_cols, modulus unless x is bytes and num_32_bytes (and num_rows, num_cols, modulus, respectively) are integer with num_32_bytes >= 1 (and num_rows >= 1, num_cols >= 1, and modulus >= 1, respectively), and x consists of at least num_32_bytes*num_rows*num_cols*32 bytes, but had len(x)={len(x)}.')
 
 
-def decode_ntt_matrix(x: bytes, l: int, num_rows: int, num_cols: int, modulus: int) -> PolynomialNTTMatrix:
-    if isinstance(x, bytes) and isinstance(l, int) and l >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1 and isinstance(modulus, int) and modulus >= 1 and len(x) >= l*num_rows*num_cols*32*2:
+def decode_ntt_matrix(x: bytes, num_32_bytes: int, num_rows: int, num_cols: int, modulus: int) -> PolynomialNTTMatrix:
+    if isinstance(x, bytes) and isinstance(num_32_bytes, int) and num_32_bytes >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1 and isinstance(modulus, int) and modulus >= 1 and len(x) >= num_32_bytes*num_rows*num_cols*32*2:
         # For NTT rep, we have double the degree
         y = deepcopy(x)
         resulting_ntt_reps: list[list[list[int]]] = []
         for i in range(num_rows):
             resulting_ntt_reps += [[]]
             for j in range(num_cols):
-                z, y = y[:32*l*2], y[32*l*2:]
-                w = decode(x=z, l=l)
+                z, y = y[:32 * num_32_bytes * 2], y[32 * num_32_bytes * 2:]
+                w = decode(x=z, num_32_bytes=num_32_bytes)
                 resulting_ntt_reps[-1] += [w]
-        return PolynomialNTTMatrix(modulus=modulus, degree=DEGREE, vals=resulting_ntt_reps)
-    raise ValueError('Input does not have enough bytes to decode to a PolynomialMatrix.')
+        return PolynomialNTTMatrix(vals=resulting_ntt_reps, modulus=modulus, degree=DEGREE)
+    raise ValueError(f'Cannot compute decode_ntt_matrix with x, num_32_bytes, num_rows, num_cols, modulus unless x is bytes and num_32_bytes (and num_rows, num_cols, modulus, respectively) are integers with num_32_bytes >= 1 (and num_rows >= 1, num_cols >= 1, and modulus >= 1, respectively), and x consists of at least num_32_bytes*num_rows*num_cols*32 bytes, but had len(x)={len(x)}.')
 
 
 def XOF(x: bytes) -> bytes:
     if isinstance(x, bytes):
+        # Pass input to whatever XOF your implementation requires.
         pass
-    raise ValueError('Must input bytes to XOF.')
+    raise ValueError(f'Cannot compute XOF with x unless x is bytes, but had type(x)={type(x)}.')
 
 
 def PRF(x: bytes) -> bytes:
     if isinstance(x, bytes):
+        # Pass input to whatever PRF your implementation requires.
         pass
-    raise ValueError('Must input bytes to PRF.')
+    raise ValueError(f'Cannot compute PRF with x unless x is bytes, but had type(x)={type(x)}.')
 
 
 def KDF(x: bytes) -> bytes:
     if isinstance(x, bytes):
+        # Pass input to whatever KDF your implementation requires.
         pass
-    raise ValueError('')
+    raise ValueError(f'Cannot compute KDF with x unless x is bytes, but had type(x)={type(x)}.')
 
 
 def HashFunctionH(x: bytes) -> bytes:
     if isinstance(x, bytes):
+        # Pass input to whatever hash function H your implementation requires.
         pass
-    raise ValueError('')
+    raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
 
 
 def HashFunctionG(x: bytes) -> bytes:
     if isinstance(x, bytes):
+        # Pass input to whatever hash function G your implementation requires.
         pass
-    raise ValueError('')
+    raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
 
 
 def parse(x: bytes) -> list[list[int]]:
     if isinstance(x, bytes):
         pass
-    raise ValueError()
+    raise ValueError(f'Cannot compute parse with x unless x is bytes, but had type(x)={type(x)}.')
 
 
-def cbd(eta: int, x: bytes) -> int:
+def cbd(x: bytes, eta: int) -> int:
     if isinstance(eta, int) and eta >= 1 and isinstance(x, bytes) and len(x) >= 64*eta:
         z = x.decode()
         y: str = z[:len(z)//2]
@@ -461,7 +395,7 @@ def cbd(eta: int, x: bytes) -> int:
         u: int = sum(int(i == '1') for i in y)
         v: int = sum(int(i == '1') for i in w)
         return u - v
-    raise ValueError()
+    raise ValueError(f'Cannot compute cbd with x, eta unless x is bytes, eta is an integer with eta >= 1, and len(x) >= 64*eta, but had (eta, len(x))={(eta, len(x))}.')
 
 
 def cpa_pke_keygen(security_parameter: int) -> tuple[bytes, bytes]:
@@ -472,46 +406,91 @@ def cpa_pke_keygen(security_parameter: int) -> tuple[bytes, bytes]:
         sigma: bytes
         rho, sigma = rho_and_sigma[:len(rho_and_sigma)//2], rho_and_sigma[len(rho_and_sigma)//2:]
         N: int = 0
-        A_ntt_reps: list[list[list[int]]] = []
+        A_hat: list[list[list[int]]] = []
         for i in range(PARAMS[security_parameter]['k']):
-            A_ntt_reps += [[]]
+            A_hat += [[]]
             for j in range(PARAMS[security_parameter]['k']):
                 x: bytes = rho + bin(j)[2:].encode() + bin(i)[2:].encode()
-                A_ntt_reps[-1] += parse(XOF(x))
-        A: PolynomialNTTMatrix = PolynomialNTTMatrix(modulus=MODULUS, degree=DEGREE, vals=A_ntt_reps)
-        s_coef_reps: list[list[list[int]]] = [[] for i in range(PARAMS[security_parameter]['k'])]
+                A_hat[-1] += parse(XOF(x))
+        A_hat: PolynomialNTTMatrix = PolynomialNTTMatrix(vals=A_hat, modulus=MODULUS, degree=DEGREE)
+        s: list[list[list[int]]] = [[] for i in range(PARAMS[security_parameter]['k'])]
         for i in range(PARAMS[security_parameter]['k']):
             next_x: bytes = sigma + bin(N)[2:].encode()
-            s_coef_reps[i] = cbd(eta=PARAMS[security_parameter]['eta_one'], x=PRF(x=next_x))
+            s[i] = cbd(x=PRF(x=next_x), eta=PARAMS[security_parameter]['eta_one'])
             N += 1
-        s: PolynomialNTTMatrix = PolynomialNTTMatrix(modulus=MODULUS, degree=DEGREE, vals=s_coef_reps)
-        for i, row in enumerate(s.vals):
+        s_hat: PolynomialNTTMatrix = PolynomialNTTMatrix(vals=s, modulus=MODULUS, degree=DEGREE)
+        for i, row in enumerate(s_hat.vals):
             for j, col in enumerate(row):
                 for k, coef in enumerate(col):
-                    s.vals[i][j][k] = s.vals[i][j][k] % MODULUS
-        e_coef_reps: list[list[list[int]]] = [[] for i in range(PARAMS[security_parameter]['k'])]
+                    s_hat.vals[i][j][k] = s_hat.vals[i][j][k] % MODULUS
+        e: list[list[list[int]]] = [[] for i in range(PARAMS[security_parameter]['k'])]
         for i in range(PARAMS[security_parameter]['k']):
             next_x: bytes = sigma + bin(N)[2:].encode()
-            e_coef_reps[i] = cbd(eta=PARAMS[security_parameter]['k'], x=next_x)
+            e[i] = cbd(x=next_x, eta=PARAMS[security_parameter]['k'])
             N += 1
-        e: PolynomialNTTMatrix = PolynomialNTTMatrix(modulus=MODULUS, degree=DEGREE, vals=e_coef_reps)
-        t: PolynomialNTTMatrix = A * s + e
-        for i, row in enumerate(t.vals):
+        e_hat: PolynomialNTTMatrix = PolynomialNTTMatrix(vals=e, modulus=MODULUS, degree=DEGREE)
+        t_hat: PolynomialNTTMatrix = A_hat * s_hat + e_hat
+        for i, row in enumerate(t_hat.vals):
             for j, col in enumerate(row):
                 for k, coef in enumerate(col):
-                    t.vals[i][j][k] = t.vals[i][j][k] % MODULUS
-        pk: bytes = t.encode(l=12) + rho
-        sk: bytes = s.encode(l=12)
+                    t_hat.vals[i][j][k] = t_hat.vals[i][j][k] % MODULUS
+        pk: bytes = t_hat.encode(num_bits=12) + rho
+        sk: bytes = s_hat.encode(num_bits=12)
         return pk, sk
     raise ValueError(
         f'Must have security_parameter={security_parameter} in ALLOWABLE_SECURITY_PARAMETERS=' +
         f'{ALLOWABLE_SECURITY_PARAMETERS}.')
 
 
-def cpa_pke_encrypt(security_parameter: int, pk: bytes, m: bytes) -> tuple[bytes, bytes]:
+def cpa_pke_encrypt(security_parameter: int, pk: bytes, m: bytes, r: bytes) -> bytes:
     if security_parameter in ALLOWABLE_SECURITY_PARAMETERS:
-        pass
-    raise ValueError()
+        N: int = 0
+        encoded_t_hat: bytes = pk[:ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']]
+        encoded_rho: bytes = pk[ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']:]
+        t_hat: PolynomialNTTMatrix = decode_ntt_matrix(x=encoded_t_hat, num_32_bytes=12, num_rows=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k'], num_cols=1, modulus=MODULUS)
+        A_hat_transpose_vals: list[list[list[int]]] = []
+        for i in range(ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']):
+            A_hat_transpose_vals += [[]]
+            for j in range(ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']):
+                A_hat_transpose_vals[-1] = parse(XOF(encoded_rho, i, j))
+        A_hat_transpose: PolynomialNTTMatrix = PolynomialNTTMatrix(vals=A_hat_transpose_vals, modulus=MODULUS, degree=DEGREE)
+        r_vals: list[list[list[int]]] = []
+        for i in range(ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']):
+            r_vals += [[cbd(x=PRF(r, N), eta=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['eta_one'])]]
+            N += 1
+        r: PolynomialCoefficientMatrix = PolynomialCoefficientMatrix(vals=r_vals, modulus=MODULUS, degree=DEGREE)
+        e_one_vals: list[list[list[int]]] = []
+        for i in range(ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['k']):
+            e_one_vals += [[cbd(x=PRF(r, N), eta=ETA_TWO)]]
+            N += 1
+        e_one: PolynomialCoefficientMatrix = PolynomialCoefficientMatrix(vals=e_one_vals, modulus=MODULUS, degree=DEGREE)
+        e_two_vals: list[list[list[int]]] = []
+        e_two_vals += [[cbd(x=PRF(r, N), eta=ETA_TWO)]]
+        e_two: PolynomialCoefficientMatrix = PolynomialCoefficientMatrix(vals=e_two_vals, modulus=MODULUS, degree=DEGREE)
+
+        r_hat: PolynomialNTTMatrix = r.ntt()
+
+        tmp_one: PolynomialNTTMatrix = A_hat_transpose * r_hat
+        u: PolynomialCoefficientMatrix = tmp.inv_ntt() + e_one
+
+        tmp_two: PolynomialNTTMatrix = t_hat * r_hat
+        tmp_three: PolynomialCoefficientMatrix = tmp_two.inv_ntt() + e_two
+        decoded_msg: PolynomialCoefficientMatrix = decode(x=m, num_32_bytes=1)
+        decompressed_decoded_msg: PolynomialCoefficientMatrix = decoded_msg.decompress(num_bits=1)
+        v: PolynomialCoefficientMatrix = tmp_three + decompressed_decoded_msg
+
+        compressed_u: PolynomialCoefficientMatrix = u.compress(num_bits=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['d_u'])
+        encoded_compresssed_u: bytes = compressed_u.encode(num_bits=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['d_u'])
+
+        compressed_v: PolynomialCoefficientMatrix = v.compress(num_bits=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['d_v'])
+        encoded_compressed_v: bytes = compressed_v.encode(num_bits=ALLOWABLE_SECURITY_PARAMETERS[security_parameter]['d_v'])
+
+        return encoded_compresssed_u + encoded_compressed_v
+
+
+    raise ValueError(
+        f'Must have security_parameter={security_parameter} in ALLOWABLE_SECURITY_PARAMETERS=' +
+        f'{ALLOWABLE_SECURITY_PARAMETERS}.')
 
 
 def cpa_pke_decrypt(security_parameter: int, sk: bytes, c: bytes) -> tuple[bytes, bytes]:
