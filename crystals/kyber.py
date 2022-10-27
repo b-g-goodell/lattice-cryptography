@@ -6,34 +6,34 @@ from secrets import randbits
 # Order of variables: (x, y, z, w) <- (i, j, k, l) <- (u, v, r, s)
 # Metasyntactic list: foo, bar, baz, qux, quux, corge, grault, garply, waldo, fred, plugh, xyzzy, thud
 
-ALLOWABLE_SECURITY_PARAMETERS: list[int] = [512, 768, 1024]
-DEGREE: int = 256
+# Parameters from Kyber1024
+N: int = 256
 MODULUS: int = 3329
-ETA_TWO: int = 2
+K: int = 4
+ETA: int = 2
+D_U: int = 11
+D_V: int = 5
 ROU: int = 17
 ROU_INV: int = 1175
-PARAMS: dict[int, dict[str, Any]] = {
-    512: {'k': 2, 'eta_one': 3, 'd_u': 10, 'd_v': 4, 'log_delta': -139},
-    768: {'k': 3, 'eta_one': 2, 'd_u': 10, 'd_v': 4, 'log_delta': -164},
-    1024: {'k': 4, 'eta_one': 2, 'd_u': 11, 'd_v': 5, 'log_delta': -174}
-}
-TWICE_DEGREE: int = 2 * DEGREE
+
+# Convenient constants derived from the parameters above
+TWICE_DEGREE: int = 2 * N
 LOG_TWICE_DEGREE: int = ceil(log2(TWICE_DEGREE))
 HALF_MODULUS: int = MODULUS // 2
 LOG_MODULUS: int = ceil(log2(MODULUS))
-ZETAS: list[int] = [(ROU ** k) % MODULUS for k in [TWICE_DEGREE // (2 ** (s + 1)) for s in range(LOG_TWICE_DEGREE)]]
-ZETA_INVS: list[int] = [(ROU_INV ** k) % MODULUS for k in
-                        [TWICE_DEGREE // (2 ** (s + 1)) for s in range(LOG_TWICE_DEGREE)]]
-ENCODED_CPA_PKE_SK_LEN: dict[int, int] = {security_parameter: 12 * PARAMS[security_parameter]['k'] * DEGREE / 8 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CPA_PKE_PK_LEN: dict[int, int] = {security_parameter: 12 * PARAMS[security_parameter]['k'] * DEGREE / 8 + 32 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CPA_PKE_CIPHERTEXT_ONE_LEN: dict[int, int] = {security_parameter: PARAMS[security_parameter]['d_u'] * PARAMS[security_parameter]['k'] * DEGREE / 8 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CPA_PKE_CIPHERTEXT_TWO_LEN: dict[int, int] = {security_parameter: PARAMS[security_parameter]['d_v'] * DEGREE / 8 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CPA_PKE_CIPHERTEXT_LEN: dict[int, int] = {security_parameter: ENCODED_CPA_PKE_CIPHERTEXT_ONE_LEN[security_parameter] + ENCODED_CPA_PKE_CIPHERTEXT_TWO_LEN[security_parameter] for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CCA_KEM_SK_LEN: dict[int, int] = {security_parameter: 24 * PARAMS[security_parameter]['k'] * DEGREE / 8 + 96 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
-ENCODED_CCA_KEM_PK_LEN: dict[int, int] = deepcopy(ENCODED_CPA_PKE_PK_LEN)
-ENCODED_CCA_KEM_CIPHERTEXT_LEN: dict[int, int] = {security_parameter: (PARAMS[security_parameter]['d_u'] * PARAMS[security_parameter]['k'] + PARAMS[security_parameter]['d_v']) * DEGREE / 8 for security_parameter in ALLOWABLE_SECURITY_PARAMETERS}
+ZETAS: list[int] = [(ROU ** i) % MODULUS for i in [TWICE_DEGREE // (2 ** (j + 1)) for j in range(LOG_TWICE_DEGREE)]]
+ZETA_INVS: list[int] = [(ROU_INV ** i) % MODULUS for i in [TWICE_DEGREE // (2 ** (j + 1)) for j in range(LOG_TWICE_DEGREE)]]
+CPA_PKE_SK_LEN: int = 12 * K * N // 8
+CPA_PKE_PK_LEN: int = 12 * K * N // 8 + 32
+CPA_PKE_CIPHERTEXT_ONE_LEN: int = D_U * K * N // 8
+CPA_PKE_CIPHERTEXT_TWO_LEN: int = D_V * N // 8
+CPA_PKE_CIPHERTEXT_LEN: int = CPA_PKE_CIPHERTEXT_ONE_LEN + CPA_PKE_CIPHERTEXT_TWO_LEN
+CCA_KEM_SK_LEN: int = 24 * K * N // 8 + 96
+CCA_KEM_PK_LEN: int = deepcopy(CPA_PKE_PK_LEN)
+CCA_KEM_CIPHERTEXT_LEN: int = D_U * K * N // 8 + D_V * N // 8
 
 
+# Utility functions for computing the NTT in constant time: bit_rev, is_pow_two, bit_rev_cp, cent_rem, ntt
 def bit_rev(x: int, length: int) -> int:
     if isinstance(length, int) and length >= 1 and isinstance(x, int) and 0 <= x < 2 ** length:
         return int(bin(x)[2:].zfill(length)[::-1], 2)
@@ -105,12 +105,78 @@ def ntt(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
         f'Cannot compute ntt for x, inv_flag, const_time unless x is a list of integers, inv_flag and const_time are both boolean, and x has power-of-two-length, but had (x, inv_flag, const_time)={(x, inv_flag, const_time)}.')
 
 
-# def encode(x: list[int], num_bits: int) -> bytes:
-#     if isinstance(num_bits, int) and num_bits >= 1 and isinstance(x, list) and all(
-#             isinstance(y, int) for y in x) and len(x) == DEGREE and all(0 <= y < 2 ** num_bits for y in x):
-#         return sum(bin(z)[2:].zfill(num_bits).encode() for z in x)
-#     raise ValueError(
-#         f'Cannot compute encode for x, num_bits unless num_bits is an integer with num_bits >= 1, x is a list of integers, x has length {DEGREE}, and each entry in x is an num_bits-bit integer, but had (x,num_bits)={(x, num_bits)}.')
+def _encode_m_one_list(x: list[int], m: int) -> bytes:
+    result = bytes(0)
+    for y in x:
+        result += bin(y)[2:].zfill(m).encode()
+    # assert len(result) == len(x)*m
+    return result
+
+
+def _encode_m_many_lists(x: list[list[list[int]]], m: int) -> bytes:
+    # Concatenate the encoding of all entries in usual order.
+    result = bytes(0)
+    for y in x:
+        for z in y:
+            result += _encode_m_one_list(x=z, m=m)
+    # assert len(result) == len(x)*len(x[0])*m
+    return result
+
+
+def encode_m(x: list[int] | list[list[list[int]]], m: int) -> bytes:
+    # We rename encode_l to encode_m to use m instead of l throughout our code because l is an ambiguous character.
+    if isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
+        return _encode_m_one_list(x=x, m=m)
+    elif isinstance(m, int) and \
+            m >= 1 and \
+            isinstance(x, list) and \
+            len(x) == K and \
+            all(isinstance(y, list) for y in x) and \
+            all(len(y) == 1 for y in x) and \
+            all(isinstance(z, list) for y in x for z in y) and \
+            all(len(z) == N for y in x for z in y) and \
+            all(isinstance(w, int) for y in x for z in y for w in z) and \
+            all(0 <= w < 2**m for y in x for z in y for w in z):
+        return _encode_m_many_lists(x=x, m=m)
+    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an {N}-list of m-bit integers or x is an K-list of 1-lists of {N}-lists of m-bit integers but had (x, m)={(x, m)}.')
+
+
+def _decode_m_one_list(x: bytes, m: int) -> list[int]:
+    return [int(x[i*m: (i+1)*m].decode(), 2) for i in range(len(x)//m)]
+
+
+def _decode_m_many_lists(x: bytes, m: int) -> list[list[list[int]]]:
+    result: list[list[list[int]]] = []
+    y: list[bytes] = [x[i*N*m: (i+1)*N*m] for i in range(K)]
+    for next_row in y:
+        next_poly: list[int] = _decode_m_one_list(x=next_row, m=m)
+        # assert len(next_poly) == N
+        result += [[next_poly]]
+    return result
+
+
+def decode_m(x: bytes, m: int) -> list[int] | list[list[list[int]]]:
+    if isinstance(x, bytes) and len(x)//m == N:
+        return _decode_m_one_list(x=x, m=m)
+    elif isinstance(x, bytes) and len(x)//m == K*N:
+        return _decode_m_many_lists(x=x, m=m)
+    raise ValueError(f'Can only decode_m with a byte string of length {N*m} or {K*N*m} but had (type(x), len(x))={(type(x), len(x))}.')
+
+
+# def test_encode_decode_inverses():
+#     for m in range(2, 17):
+#         a_polynomial: list[int] = [randbits(m) for _ in range(N)]
+#         encoded_a_polynomial: bytes = encode_m(x=a_polynomial, m=m)
+#         decoded_a_polynomial: list[int] = decode_m(x=encoded_a_polynomial, m=m)
+#         assert a_polynomial == decoded_a_polynomial
+#
+#         a_matrix_of_polynomials: list[list[list[int]]] = [[[randbits(m) for _ in range(N)]] for j in range(K)]
+#         encoded_a_matrix_of_polynomials: bytes = encode_m(x=a_matrix_of_polynomials, m=m)
+#         decoded_a_matrix_of_polynomials: list[list[list[int]]] = decode_m(x=encoded_a_matrix_of_polynomials, m=m)
+#         assert a_matrix_of_polynomials == decoded_a_matrix_of_polynomials
+
+
+
 #
 #
 # def compress_int(x: int, num_bits: int) -> int:
