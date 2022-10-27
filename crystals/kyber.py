@@ -130,7 +130,7 @@ def decompress_int(x: int, num_bits: int) -> int:
 
 def _parse_one(x: bytes) -> list[int]:
     result: list[int] = []
-    for i in range(len(x)//(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)):
+    for i in range(len(x)//((LOG_MODULUS + NEGATIVE_LOG_DELTA)//8):
         next_bytes: bytes = x[i*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA): (i+1)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)]
         result += [int(next_bytes.decode(), 2)]
     return result
@@ -141,7 +141,7 @@ def _parse_many(x: bytes) -> list[list[list[int]]]:
     for i in range(K):
         result += [[]]
         for j in range(K):
-            next_bytes: bytes = x[(K*i+j)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA): (K*i+j+1)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)]
+            next_bytes: bytes = x[(K*i+j)*((LOG_MODULUS + NEGATIVE_LOG_DELTA)//8): (K*i+j+1)*((LOG_MODULUS + NEGATIVE_LOG_DELTA)//8)]
             result[-1] += [[_parse_one(x=next_bytes)]]
     return result
 
@@ -152,11 +152,11 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
     # In our implementation, we do not accept a byteSTREAM but instead a list of bytes.
     # Parsing a uniformly random byte string as we have implemented provides observed integers that are within
     # O(2**-NEGATIVE_LOG_DELTA) of the uniform distribution.
-    if isinstance(x, bytes) and len(x) == N*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA):
+    if isinstance(x, bytes) and len(x) == N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
         return _parse_one(x=x)
-    elif isinstance(x, bytes) and len(x) == K*K*N*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA):
+    elif isinstance(x, bytes) and len(x) == K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
         return _parse_many(x=x)
-    raise ValueError(f'Cannot compute parse for x unless x is a bytes object of length {N*LOG_MODULUS//8} or {K*K*N*LOG_MODULUS//8} but had (type(x), len(x))={(type(x), len(x))}.')
+    raise ValueError(f'Cannot compute parse for x unless x is a bytes object of length {N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} or {K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} but had (type(x), len(x))={(type(x), len(x))}.')
 
 
 def cbd(x: bytes) -> int:
@@ -202,7 +202,7 @@ def encode_m(x: list[int] | list[list[list[int]]], m: int) -> bytes:
             all(isinstance(w, int) for y in x for z in y for w in z) and \
             all(0 <= w < 2**m for y in x for z in y for w in z):
         return _encode_m_many(x=x, m=m)
-    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an {N}-list of m-bit integers or x is an K-list of 1-lists of {N}-lists of m-bit integers but had (x, m)={(x, m)}.')
+    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an {N}-list of m-bit integers or x is a {K}-list of 1-lists of {N}-lists of m-bit integers but had (x, m)={(x, m)}.')
 
 
 def _decode_m_one(x: bytes, m: int) -> list[int]:
