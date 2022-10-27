@@ -163,19 +163,6 @@ def decode_m(x: bytes, m: int) -> list[int] | list[list[list[int]]]:
     raise ValueError(f'Can only decode_m with a byte string of length {N*m} or {K*N*m} but had (type(x), len(x))={(type(x), len(x))}.')
 
 
-# def test_encode_decode_inverses():
-#     for m in range(2, 17):
-#         a_polynomial: list[int] = [randbits(m) for _ in range(N)]
-#         encoded_a_polynomial: bytes = encode_m(x=a_polynomial, m=m)
-#         decoded_a_polynomial: list[int] = decode_m(x=encoded_a_polynomial, m=m)
-#         assert a_polynomial == decoded_a_polynomial
-#
-#         a_matrix_of_polynomials: list[list[list[int]]] = [[[randbits(m) for _ in range(N)]] for j in range(K)]
-#         encoded_a_matrix_of_polynomials: bytes = encode_m(x=a_matrix_of_polynomials, m=m)
-#         decoded_a_matrix_of_polynomials: list[list[list[int]]] = decode_m(x=encoded_a_matrix_of_polynomials, m=m)
-#         assert a_matrix_of_polynomials == decoded_a_matrix_of_polynomials
-
-
 
 #
 #
