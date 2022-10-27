@@ -15,6 +15,7 @@ D_U: int = 11
 D_V: int = 5
 ROU: int = 17
 ROU_INV: int = 1175
+NEGATIVE_LOG_DELTA: int = 174  # in a sense, "target bits of security," although Kyber1024 claims only 128 bits of sec.
 
 # Convenient constants derived from the parameters above
 TWICE_DEGREE: int = 2 * N
@@ -105,7 +106,70 @@ def ntt(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
         f'Cannot compute ntt for x, inv_flag, const_time unless x is a list of integers, inv_flag and const_time are both boolean, and x has power-of-two-length, but had (x, inv_flag, const_time)={(x, inv_flag, const_time)}.')
 
 
-def _encode_m_one_list(x: list[int], m: int) -> bytes:
+def compress_int(x: int, num_bits: int) -> int:
+    if isinstance(x, int) and isinstance(num_bits, int) and num_bits >= 1:
+        y: float = (x % MODULUS) * (2 ** num_bits / MODULUS)
+        ceil_y: int = ceil(y)
+        if ceil_y - y <= 0.5:
+            return ceil_y % 2 ** num_bits
+        return floor(y) % 2 ** num_bits
+    raise ValueError(
+        f'Cannot compute compress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1, but had (x, num_bits)={(x, num_bits)}.')
+
+
+def decompress_int(x: int, num_bits: int) -> int:
+    if isinstance(num_bits, int) and num_bits >= 1 and isinstance(x, int) and 0 <= x < 2 ** num_bits:
+        y: float = x * (MODULUS / 2 ** num_bits)
+        ceil_y: int = ceil(y)
+        if ceil_y - y <= 0.5:
+            return ceil_y
+        return floor(y)
+    raise ValueError(
+        f'Cannot compute decompress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1 and x is a num_bits-bit integer, but had (x, num_bits)={(x, num_bits)}.')
+
+
+def _parse_one(x: bytes) -> list[int]:
+    result: list[int] = []
+    for i in range(len(x)//(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)):
+        next_bytes: bytes = x[i*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA): (i+1)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)]
+        result += [int(next_bytes.decode(), 2)]
+    return result
+
+
+def _parse_many(x: bytes) -> list[list[list[int]]]:
+    result: list[list[list[int]]] = []
+    for i in range(K):
+        result += [[]]
+        for j in range(K):
+            next_bytes: bytes = x[(K*i+j)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA): (K*i+j+1)*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA)]
+            result[-1] += [[_parse_one(x=next_bytes)]]
+    return result
+
+
+def parse(x: bytes) -> list[int] | list[list[list[int]]]:
+    # Our implementation does NOT parse according to specifications!
+    # Our implementation is not compatible with the NIST standard: users will observe a different A matrix in pubkeys.
+    # In our implementation, we do not accept a byteSTREAM but instead a list of bytes.
+    # Parsing a uniformly random byte string as we have implemented provides observed integers that are within
+    # O(2**-NEGATIVE_LOG_DELTA) of the uniform distribution.
+    if isinstance(x, bytes) and len(x) == N*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA):
+        return _parse_one(x=x)
+    elif isinstance(x, bytes) and len(x) == K*K*N*(LOG_MODULUS//8 + NEGATIVE_LOG_DELTA):
+        return _parse_many(x=x)
+    raise ValueError(f'Cannot compute parse for x unless x is a bytes object of length {N*LOG_MODULUS//8} or {K*K*N*LOG_MODULUS//8} but had (type(x), len(x))={(type(x), len(x))}.')
+
+
+def cbd(x: bytes) -> int:
+    if isinstance(x, bytes) and len(x) >= 64 * ETA:
+        z = x.decode()
+        y: str = z[:len(z) // 2]
+        w: str = z[len(z) // 2:]
+        u: int = sum(int(i == '1') for i in y)
+        v: int = sum(int(i == '1') for i in w)
+        return u - v
+    raise ValueError(f'Cannot compute cbd for x unless x is a bytes object of length at least {64*ETA} but had len(x)={len(x)}.')
+
+def _encode_m_one(x: list[int], m: int) -> bytes:
     result = bytes(0)
     for y in x:
         result += bin(y)[2:].zfill(m).encode()
@@ -113,12 +177,12 @@ def _encode_m_one_list(x: list[int], m: int) -> bytes:
     return result
 
 
-def _encode_m_many_lists(x: list[list[list[int]]], m: int) -> bytes:
+def _encode_m_many(x: list[list[list[int]]], m: int) -> bytes:
     # Concatenate the encoding of all entries in usual order.
     result = bytes(0)
     for y in x:
         for z in y:
-            result += _encode_m_one_list(x=z, m=m)
+            result += _encode_m_one(x=z, m=m)
     # assert len(result) == len(x)*len(x[0])*m
     return result
 
@@ -126,7 +190,7 @@ def _encode_m_many_lists(x: list[list[list[int]]], m: int) -> bytes:
 def encode_m(x: list[int] | list[list[list[int]]], m: int) -> bytes:
     # We rename encode_l to encode_m to use m instead of l throughout our code because l is an ambiguous character.
     if isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
-        return _encode_m_one_list(x=x, m=m)
+        return _encode_m_one(x=x, m=m)
     elif isinstance(m, int) and \
             m >= 1 and \
             isinstance(x, list) and \
@@ -137,19 +201,19 @@ def encode_m(x: list[int] | list[list[list[int]]], m: int) -> bytes:
             all(len(z) == N for y in x for z in y) and \
             all(isinstance(w, int) for y in x for z in y for w in z) and \
             all(0 <= w < 2**m for y in x for z in y for w in z):
-        return _encode_m_many_lists(x=x, m=m)
+        return _encode_m_many(x=x, m=m)
     raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an {N}-list of m-bit integers or x is an K-list of 1-lists of {N}-lists of m-bit integers but had (x, m)={(x, m)}.')
 
 
-def _decode_m_one_list(x: bytes, m: int) -> list[int]:
+def _decode_m_one(x: bytes, m: int) -> list[int]:
     return [int(x[i*m: (i+1)*m].decode(), 2) for i in range(len(x)//m)]
 
 
-def _decode_m_many_lists(x: bytes, m: int) -> list[list[list[int]]]:
+def _decode_m_many(x: bytes, m: int) -> list[list[list[int]]]:
     result: list[list[list[int]]] = []
     y: list[bytes] = [x[i*N*m: (i+1)*N*m] for i in range(K)]
     for next_row in y:
-        next_poly: list[int] = _decode_m_one_list(x=next_row, m=m)
+        next_poly: list[int] = _decode_m_one(x=next_row, m=m)
         # assert len(next_poly) == N
         result += [[next_poly]]
     return result
@@ -157,37 +221,12 @@ def _decode_m_many_lists(x: bytes, m: int) -> list[list[list[int]]]:
 
 def decode_m(x: bytes, m: int) -> list[int] | list[list[list[int]]]:
     if isinstance(x, bytes) and len(x)//m == N:
-        return _decode_m_one_list(x=x, m=m)
+        return _decode_m_one(x=x, m=m)
     elif isinstance(x, bytes) and len(x)//m == K*N:
-        return _decode_m_many_lists(x=x, m=m)
-    raise ValueError(f'Can only decode_m with a byte string of length {N*m} or {K*N*m} but had (type(x), len(x))={(type(x), len(x))}.')
+        return _decode_m_many(x=x, m=m)
+    raise ValueError(f'Cannot compute decode_m for (x, m) unless x is a bytes object of length {N*m} or {K*N*m} but had (type(x), len(x))={(type(x), len(x))}.')
 
 
-
-#
-#
-# def compress_int(x: int, num_bits: int) -> int:
-#     if isinstance(x, int) and isinstance(num_bits, int) and num_bits >= 1:
-#         y: float = (x % MODULUS) * (2 ** num_bits / MODULUS)
-#         ceil_y: int = ceil(y)
-#         if ceil_y - y <= 0.5:
-#             return ceil_y % 2 ** num_bits
-#         return floor(y) % 2 ** num_bits
-#     raise ValueError(
-#         f'Cannot compute compress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1, but had (x, num_bits)={(x, num_bits)}.')
-#
-#
-# def decompress_int(x: int, num_bits: int) -> int:
-#     if isinstance(num_bits, int) and num_bits >= 1 and isinstance(x, int) and 0 <= x < 2 ** num_bits:
-#         y: float = x * (MODULUS / 2 ** num_bits)
-#         ceil_y: int = ceil(y)
-#         if ceil_y - y <= 0.5:
-#             return ceil_y
-#         return floor(y)
-#     raise ValueError(
-#         f'Cannot compute decompress_int for x, num_bits unless x and num_bits are both integers with num_bits >= 1 and x is a num_bits-bit integer, but had (x, num_bits)={(x, num_bits)}.')
-#
-#
 # class PolynomialMatrix(object):
 #     modulus: int
 #     degree: int
@@ -500,19 +539,6 @@ def decode_m(x: bytes, m: int) -> list[int] | list[list[list[int]]]:
 #     if isinstance(x, bytes):
 #         pass
 #     raise ValueError(f'Cannot compute parse with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
-# def cbd(x: bytes, eta: int) -> int:
-#     if isinstance(eta, int) and eta >= 1 and isinstance(x, bytes) and len(x) >= 64 * eta:
-#         z = x.decode()
-#         y: str = z[:len(z) // 2]
-#         w: str = z[len(z) // 2:]
-#         u: int = sum(int(i == '1') for i in y)
-#         v: int = sum(int(i == '1') for i in w)
-#         return u - v
-#     raise ValueError(
-#         f'Cannot compute cbd with x, eta unless x is bytes, eta is an integer with eta >= 1, and len(x) >= 64*eta, ' +
-#         f'but had (eta, len(x))={(eta, len(x))}.')
 #
 #
 # def cpa_pke_keygen(security_parameter: int) -> bytes:
