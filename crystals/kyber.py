@@ -683,7 +683,6 @@ def cca_kem_encapsulate(pk: bytes) -> bytes:
 
 
 def _cca_kem_dec(ciphertext: bytes, sk: bytes) -> bytes:
-    sk_prime: bytes = sk[:CPA_PKE_SK_LEN]
     pk: bytes = sk[CPA_PKE_SK_LEN:CPA_PKE_SK_LEN+CPA_PKE_PK_LEN]
     hashed_pk: bytes = sk[CPA_PKE_SK_LEN+CPA_PKE_PK_LEN:CPA_PKE_SK_LEN+CPA_PKE_PK_LEN+SEED_LEN]
     z: bytes = sk[CPA_PKE_SK_LEN+CPA_PKE_PK_LEN+SEED_LEN:]
