@@ -1,5 +1,18 @@
 from crystals.kyber import *
 import pytest
+from random import randbytes
+
+
+SAMPLE_SIZE: int = 2**10
+
+
+def int2bytes_inverse_of_bytes2int():
+    for length in range(8, 32):
+        for next_int in range(2**length):
+            assert next_int == bytes2int(x=int2bytes(x=next_int, length=length))
+        some_random_bytes: list[bytes] = [randbytes(length) for _ in range(SAMPLE_SIZE)]
+        for next_bytes in some_random_bytes:
+            assert next_bytes == int2bytes(x=bytes2int(x=next_bytes), length=length)
 
 
 def test_encode_decode_inverses():

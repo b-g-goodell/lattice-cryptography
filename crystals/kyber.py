@@ -1,3 +1,27 @@
+"""
+A python implementation of the CRYSTALS-Kyber algorithm.
+
+Documentation
+-------------
+Documentation is hosted at ???
+
+Hosting
+-------
+The repository for this project can be found at ???
+
+License
+-------
+Released under the MIT License, see LICENSE file for details. ???
+
+Copyright
+---------
+Copyright (c) 2022 Geometry Labs, Inc.
+Funded by The QRL Foundation.
+
+Contributors
+------------
+Brandon Goodell (lead author), Mitchell Krawiec-Thayer.
+"""
 from math import ceil, floor, log2
 from copy import deepcopy
 from typing import Any
@@ -35,114 +59,218 @@ ENCODED_CPA_PKE_PK_LEN: int = (CPA_PKE_PK_LEN - SEED_LEN) // (K * N // 8)
 CPA_PKE_FIRST_CIPHERTEXT_LEN: int = D_U * K * N // 8
 CPA_PKE_SECOND_CIPHERTEXT_LEN: int = D_V * N // 8
 CPA_PKE_CIPHERTEXT_LEN: int = CPA_PKE_FIRST_CIPHERTEXT_LEN + CPA_PKE_SECOND_CIPHERTEXT_LEN
-
-CCA_KEM_SK_LEN: int = 24 * K * N // 8 + 96
-CCA_KEM_PK_LEN: int = deepcopy(CPA_PKE_PK_LEN)
-CCA_KEM_CIPHERTEXT_LEN: int = D_U * K * N // 8 + D_V * N // 8
+CCA_KEM_SK_LEN: int = CPA_PKE_SK_LEN + CPA_PKE_PK_LEN + 2*SEED_LEN
+CCA_KEM_PK_LEN: int = CPA_PKE_PK_LEN
+CCA_KEM_CIPHERTEXT_LEN: int = CPA_PKE_CIPHERTEXT_LEN
 
 
 def int2bytes(x: int, length: int = LOG_K) -> bytes:
-    return bin(x)[2:].encode().zfill(length)
+    """
+    Essentially the encode function from the specs for a single integer: write the binary expansion of 'x', fill out
+    to take up 'length' bits. NOTE: output of this function is a bytes object consisting of 'length//8' bytes.
+    :param x: Input integer to be encoded as bytes.
+    :type x: int
+    :param length: Length
+    :type length: int
+    :return: Bytes representation of input x
+    :rtype: bytes
+    """
+    if isinstance(x, int) and isinstance(length, int) and 0 <= x < 2**length:
+        return bin(x)[2:].encode().zfill(length)
+    elif not isinstance(x, int):
+        raise TypeError(f'Cannot int2bytes with x, length unless x is an integer, but had type(x)={type(x)}.')
+    elif not isinstance(length, int):
+        raise TypeError(f'Cannot int2bytes with x, length unless length is an integer, but had type(length)={type(length)}.')
+    raise ValueError(f'Cannot int2bytes with x, length unless 0 <= x < {2**length}, but had x={x}.')
 
 
 def bytes2int(x: bytes) -> int:
-    return int(x, 2)
+    """
+    Essentially the decode function from the specs for a single integer, interprets the input bytes object as the binary
+    expansion of an integer in bits but written as bytes.
+    :param x: Input integer to be encoded as bytes.
+    :type x: int
+    :param length: Length
+    :type length: int
+    :return: Integer representation of input x
+    :rtype: int
+    """
+    if isinstance(x, bytes):
+        return int(x, 2)
+    raise TypeError(f'Cannot bytes2int with x unless x is a bytes object, but had type(x)={type(x)}.')
 
 
-# Utility functions for computing the NTT in constant time: bit_rev, is_pow_two, bit_rev_cp, reduce, ntt
 def bit_rev(x: int, length: int) -> int:
+    """
+    Reverse the bits in the binary expansion of x
+    :param x: Input integer whose bits are to be reversed
+    :type x: int
+    :param length: Length of binary expansion
+    :type length: int
+    :return: Integer whose binary expansion is the reverse of the input x
+    :rtype: int
+    """
     if isinstance(length, int) and length >= 1 and isinstance(x, int) and 0 <= x < 2 ** length:
-        tmp: bytes = int2bytes(x=x, length=length)
-        return bytes2int(x=tmp[::-1])  # reverse order
-    raise ValueError(
-        f'Cannot compute bit_rev for x, length unless length is an integer with length >= 1 and x is an length-bit integer, but had (x,length)={(x, length)}.')
+        x_as_bytes: bytes = int2bytes(x=x, length=length)
+        return bytes2int(x=x_as_bytes[::-1])  # reverse order
+    elif not isinstance(x, int):
+        raise TypeError(f'Cannot bit_rev with x, length unless x is an integer, but had type(x)={type(x)}.')
+    elif not isinstance(length, int):
+        raise TypeError(f'Cannot bit_rev with x, length unless length is an integer, but had type(length)={type(length)}.')
+    elif length < 1:
+        raise ValueError(f'Cannot bit_rev with x, length unless length >= 1, but had length={length}.')
+    raise ValueError(f'Cannot bit_rev with x, length unless 0 <= x < {2**length} but had x={x}.')
 
 
 def is_pow_two(x: int) -> bool:
+    """
+    Check whether input integer is a (positive) power-of-two.
+    :param x: Input integer
+    :type x: int
+    :return: Boolean indicating whether x is a positive power of two.
+    :rtype: bool
+    """
     if isinstance(x, int) and x > 0:
         return not (x & (x - 1))
     return False
 
 
 def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
-    if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(num_bits,
-                                                                                 int) and num_bits >= 1 and len(
-            x) == 2 ** num_bits:
+    """
+    Input a list of integers with power-of-two length and permute by reversing the digits in the binary expansions of
+    the indices. For example: if x = [172, 31, 56, 7], the indices are 0, 1, 2, 3, whose binary expansions are
+    00, 01, 10, 11. When reversed digit-by-digit, the binary expansions are 00, 10, 01, 11, or 0, 2, 1, 3. So bit_rev_cp
+    will output [x[0], x[2], x[1], x[3]] = [172, 56, 31, 7]. For another example: if
+    x = [172, 31, 56, 7, 202, 63, 17, 13], the indices are 0, 1, 2, 3, 4, 5, 6, 7, whose binary expansions are 000, 001,
+    010, 011, 100, 101, 110, 111. When reversed, the binary expansions are 000, 100, 010, 110, 001, 101, 011, 111, or
+    0, 4, 2, 6, 1, 5, 3, 7. So bit_rev_cp will output
+    [x[0], x[4], x[2], x[6], x[1], x[5], x[3], x[7] = [172, 202, 56, 17, 31, 63, 56, 7, 13].
+    :param x: List of integers
+    :type x: list[int]
+    :param num_bits: Number of bits required to describe the maximum index in x.
+    :type x: int
+    :return: List of integers with bit-reversed indices.
+    :rtype: list[int]
+    """
+    if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(num_bits, int) and num_bits >= 1 and len(x) == 2 ** num_bits:
         return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
-    raise ValueError(
-        f'Cannot compute bit_reverse_cp for x, num_bits unless x is a list of integers, num_bits is an integer with num_bits >= 1, and the len(x)==2**num_bits, but had (x,num_bits)={(x, num_bits)}.')
+    elif not isinstance(x, list):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list, but had type(x)={type(x)}.')
+    elif not all(isinstance(y, int) for y in x):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list of integers, but had (type(y) for y in x)={(type(y) for y in x)}.')
+    elif not isinstance(num_bits, int):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless num_bits is an integer, but had type(num_bits)={type(num_bits)}.')
+    elif num_bits < 1:
+        raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless num_bits >= 1, but had num_bits={num_bits}.')
+    raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless len(x) == {2**num_bits} but had len(x)={len(x)}.')
 
 
 def reduce(x: int) -> int:
+    """
+    Compute some integer w such that -MODULUS//2 <= w <= MODULUS//2 and such that (x-w) % MODULUS == 0, in constant
+    time.
+    :param x: Input integer
+    :type x: int
+    :return: "Centered" representative of x % MODULUS.
+    :rtype: int
+    """
     if isinstance(x, int):
         y: int = x % MODULUS
         z: int = y - HALF_MODULUS - 1
-        return y - (1 + (z >> LOG_MODULUS)) * MODULUS
-    raise ValueError(f'Cannot compute reduce for x unless x is an integer, but had x={x}.')
+        w: int = y - (1 + (z >> LOG_MODULUS)) * MODULUS
+        return w
+    raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
 
 
-def round_without_bias(x: float) -> int:
-    ceil_x: int = ceil(x)
-    if ceil_x - x < 0.5:
-        return ceil_x
-    return floor(x)
+def round_up(x: float | int) -> int:
+    """
+    Round an input float (or integer) to the nearest integer, so that a float ending with the decimal .5 rounds up.
+    :param x: Input number
+    :type x: float or integer
+    :return: Integer closest to x, (rounding up for floats ending in .5).
+    :rtype: int
+    """
+    if isinstance(x, float) or isinstance(x, int):
+        ceil_x: int = ceil(x)
+        if ceil_x - x < 0.5:
+            return ceil_x
+        return floor(x)
+    raise TypeError(f'Cannot round_up with x unless x is a float or an int, but had type(x)={type(x)}.')
 
 
-def _parse_one(x: bytes) -> list[int]:
-    # Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream. See comments in the parse function.
-    i: int = 0
-    j: int = 0
-    result: list[int] = []
-    while j < N:
-        d1 = x[i] + 256 * (x[i + 1] % 16)
-        d2 = (x[i + 1] // 16) + 16 * x[i + 2]
-        if d1 < MODULUS:
-            result += [d1]
-            j += 1
-        if d2 < MODULUS and j < N:
-            result += [d2]
-            j += 1
-        i += 3
-    if len(result) < N:
-        raise ValueError('Parsing failed!')
-    return result
+def _parse_one(x: bytes) -> tuple[list[int], int]:
+    """
+    Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
+    [0, 1, 2, 3, ..., MODULUS - 1] for MODULUS=3329, and the second entry is an integer describing the index of the
+    first unused byte in x.
+    TODO: Extend this to work for arbitrary N and arbitrary MODULUS.
+    :param x: Input bytes
+    :type x: bytes
+    :return: A 2-tuple, where the first entry is a list of integers, and the second entry is an integer.
+    :rtype: tuple[list[int], int]
+    """
+    if isinstance(x, bytes):
+        i: int = 0
+        j: int = 0
+        result: list[int] = []
+        while j < N and i+2 < len(x):
+            d1 = x[i] + 256 * (x[i + 1] % 16)
+            d2 = (x[i + 1] // 16) + 16 * x[i + 2]
+            if d1 < MODULUS:
+                result += [d1]
+                j += 1
+            if d2 < MODULUS and j < N:
+                result += [d2]
+                j += 1
+            i += 3
+        if len(result) < N:
+            raise RuntimeError(f'Parsing failed! Did not have enough input bits to do the job.')
+        return result, i
+    raise TypeError(f'Cannot _parse_one with x unless x is a bytes object, but had type(x)={type(x)}.')
 
 
 def _parse_many(x: bytes) -> list[list[list[int]]]:
-    # Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream. See comments in the parse function.
-    result: list[list[list[int]]] = []
-    for i in range(K):
-        result += [[]]
-        for j in range(K):
-            next_bytes: bytes = x[(K*i+j)*((LOG_MODULUS + NEGATIVE_LOG_DELTA)//8): (K*i+j+1)*((LOG_MODULUS + NEGATIVE_LOG_DELTA)//8)]
-            result[-1] += [[_parse_one(x=next_bytes)]]
-    return result
+    """
+    Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
+    [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329, by calling _parse_one several times.
+    TODO: Extend this to work for arbitrary K, arbitrary N, and arbitrary MODULUS.
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
+    if isinstance(x, bytes):
+        result: list[list[list[int]]] = []
+        starting_index: int = 0
+        for i in range(K):
+            result += [[]]
+            for j in range(K):
+                next_result, starting_index = _parse_one(x=x[starting_index:])
+                result[-1] += [[next_result[0]]]
+                starting_index = next_result[1]
+        return result
+    raise TypeError(f'Cannot _parse_many with x unless x is a bytes object, but had type(x)={type(x)}.')
 
 
 def parse(x: bytes) -> list[int] | list[list[list[int]]]:
+    """
+    Parse an input bytes object into either a list of 256 integers, or a list of K=4 lists of K=4 lists of N=256
+    integers, each in the list [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329.
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
     # Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream.
     # Our implementation is not compatible with the NIST standard: users will observe a different "A" matrix.
     # There is a small positive probability that parsing fails.
     if isinstance(x, bytes) and len(x) == N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
-        return _parse_one(x=x)
+        return _parse_one(x=x)[0]
     elif isinstance(x, bytes) and len(x) >= K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
         return _parse_many(x=x)
-    raise ValueError(f'Cannot compute parse for x unless x is a bytes object of length {N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} or {K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} but had (type(x), len(x))={(type(x), len(x))}.')
-
-
-def _cbd(x: bytes, eta: int) -> int:
-    z = x.decode()
-    y: str = z[:len(z) // 2]
-    w: str = z[len(z) // 2:]
-    u: int = sum(int(i == '1') for i in y)
-    v: int = sum(int(i == '1') for i in w)
-    return u - v
-
-
-def cbd(x: bytes) -> int:
-    if isinstance(x, bytes) and len(x) >= 64 * ETA:
-        return _cbd(x=x, eta=ETA)
-    raise ValueError(f'Cannot compute cbd for x unless x is a bytes object of length at least {64*ETA} but had len(x)={len(x)}.')
+    elif not isinstance(x, bytes):
+        raise TypeError(f'Cannot parse with x unless x is a bytes object, but had type(x)={type(x)}.')
+    raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} or length at least {K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} but had len(x)={len(x)}.')
 
 
 class PolyCoefs(object):
@@ -290,8 +418,38 @@ class PolyNTT(object):
         return result
 
 
+def _cbd_one_integer(x: bytes, eta: int) -> int:
+    """
+    Input a bytes object x and an integer eta, and interpret the bytes object as an integer in the list
+    [-eta, -eta+1, -eta+2, ..., eta-2, eta-1, eta]. Works by interpreting x as a bit string with at least 2*eta bits,
+    summing the number of non-zero entries in the first and second half of the bit string, and computing their diff.
+    :param x: Input bytes
+    :type x: bytes
+    :param eta: Bound eta
+    :type eta: int
+    :return: Integer in the list [-eta, -eta+1, ..., eta-1, eta].
+    :rtype: int
+    """
+    z = x.decode()
+    y: str = z[:eta]
+    w: str = z[eta:2*eta]
+    u: int = sum(int(i == '1') for i in y)
+    v: int = sum(int(i == '1') for i in w)
+    return u - v
+
+
+def cbd(x: bytes, eta: int = ETA) -> PolyCoefs:
+    if isinstance(x, bytes) and len(x) >= 64 * eta:
+        vals: list[list[list[int]]] = []
+        for i in range(K):
+            vals += [[]]
+
+        return _cbd_one_integer(x=x)
+    raise ValueError(f'Cannot compute cbd for x unless x is a bytes object of length at least {64*ETA} but had len(x)={len(x)}.')
+
+
 def _compress_one_int(x: int, d: int, q: int = MODULUS) -> int:
-    return round_without_bias(x=x * 2 ** d / q) % 2 ** d
+    return round_up(x=x * 2 ** d / q) % 2 ** d
 
 
 def _compress_list_of_ints(x: list[int], d: int, q: int = MODULUS) -> list[int]:
@@ -319,7 +477,7 @@ def compress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, q: 
 
 
 def _decompress_one_int(x: int, d: int, q: int = MODULUS) -> int:
-    return round_without_bias(x=x * q / 2 ** d)
+    return round_up(x=x * q / 2 ** d)
 
 
 def _decompress_list_of_ints(x: list[int], d: int, q: int = MODULUS) -> list[int]:
