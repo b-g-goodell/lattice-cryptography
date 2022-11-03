@@ -90,19 +90,19 @@ def _bytes2int(x: bytes) -> int:
     return int(x, 2)
 
 
-# def bytes2int(x: bytes) -> int:
-#     """
-#     Essentially the decode function from the specs for a single integer, interprets the input bytes object as the binary
-#     expansion of an integer in bits but written as bytes.
-#
-#     :param x: Input integer to be encoded as bytes.
-#     :type x: int
-#     :return: Integer representation of input x
-#     :rtype: int
-#     """
-#     if isinstance(x, bytes):
-#         return _bytes2int(x=x)
-#     raise TypeError(f'Cannot bytes2int with x unless x is a bytes object, but had type(x)={type(x)}.')
+def bytes2int(x: bytes) -> int:
+    """
+    Essentially the decode function from the specs for a single integer, interprets the input bytes object as the binary
+    expansion of an integer in bits but written as bytes.
+
+    :param x: Input integer to be encoded as bytes.
+    :type x: int
+    :return: Integer representation of input x
+    :rtype: int
+    """
+    if isinstance(x, bytes):
+        return _bytes2int(x=x)
+    raise TypeError(f'Cannot bytes2int with x unless x is a bytes object, but had type(x)={type(x)}.')
 #
 #
 # def _bit_rev(x: int, length: int) -> int:
