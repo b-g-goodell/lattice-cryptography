@@ -1,4 +1,4 @@
-from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev
+from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two
 from random import getrandbits
 import pytest
 from random import randbytes
@@ -104,3 +104,21 @@ def test_bit_rev():
         for i in range(LOG_SAMPLE_SIZE):
             assert x[i] == reversed_x[LOG_SAMPLE_SIZE - 1 - i]
 
+
+IS_POW_TWO_CASES = [
+    (2, True),
+    (4, True),
+    (8, True),
+    (16, True),
+    (3, False),
+    (5, False),
+    (9, False),
+    (17, False),
+    (0.01, False),
+    ('Hello world', False)
+]
+
+
+@pytest.mark.parametrize("x,expected_output", IS_POW_TWO_CASES)
+def test_is_pow_two(x, expected_output):
+    assert is_pow_two(x=x) == expected_output
