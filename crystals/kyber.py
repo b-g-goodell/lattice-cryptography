@@ -130,19 +130,19 @@ def bit_rev(x: int, length: int) -> int:
     raise ValueError(f'Cannot bit_rev with x, length unless 0 <= x < {2**length} but had x={x}.')
 
 
-# def is_pow_two(x: int) -> bool:
-#     """
-#     Check whether input integer is a (positive) power-of-two.
-#     :param x: Input integer
-#     :type x: int
-#     :return: Boolean indicating whether x is a positive power of two.
-#     :rtype: bool
-#     """
-#     if isinstance(x, int) and x > 0:
-#         return not (x & (x - 1))
-#     return False
-#
-#
+def is_pow_two(x: int) -> bool:
+    """
+    Check whether input integer is a (positive) power-of-two.
+    :param x: Input integer
+    :type x: int
+    :return: Boolean indicating whether x is a positive power of two.
+    :rtype: bool
+    """
+    if isinstance(x, int) and x > 0:
+        return not (x & (x - 1))
+    return False
+
+
 # def _bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
 #     return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
 #
