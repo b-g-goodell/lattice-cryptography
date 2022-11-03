@@ -155,3 +155,7 @@ def test_bit_rev_cp_failures():
 
     with pytest.raises(ValueError):
         bit_rev_cp(x=list(range(8)), num_bits=4)
+
+@pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
+def test_bit_rev_cp_full(x, expected_output):
+    assert bit_rev_cp(x=x, num_bits=ceil(log2(len(x)))) == expected_output
