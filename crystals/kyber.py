@@ -147,35 +147,35 @@ def _bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
     return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
 
 
-# def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
-#     """
-#     Input a list of integers with power-of-two length and permute by reversing the digits in the binary expansions of
-#     the indices. For example: if x = [172, 31, 56, 7], the indices are 0, 1, 2, 3, whose binary expansions are
-#     00, 01, 10, 11. When reversed digit-by-digit, the binary expansions are 00, 10, 01, 11, or 0, 2, 1, 3. So bit_rev_cp
-#     will output [x[0], x[2], x[1], x[3]] = [172, 56, 31, 7]. For another example: if
-#     x = [172, 31, 56, 7, 202, 63, 17, 13], the indices are 0, 1, 2, 3, 4, 5, 6, 7, whose binary expansions are 000, 001,
-#     010, 011, 100, 101, 110, 111. When reversed, the binary expansions are 000, 100, 010, 110, 001, 101, 011, 111, or
-#     0, 4, 2, 6, 1, 5, 3, 7. So bit_rev_cp will output
-#     [x[0], x[4], x[2], x[6], x[1], x[5], x[3], x[7] = [172, 202, 56, 17, 31, 63, 56, 7, 13].
-#     :param x: List of integers
-#     :type x: list[int]
-#     :param num_bits: Number of bits required to describe the maximum index in x.
-#     :type x: int
-#     :return: List of integers with bit-reversed indices.
-#     :rtype: list[int]
-#     """
-#     if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(num_bits, int) and num_bits >= 1 and len(x) == 2 ** num_bits:
-#         return _bit_rev_cp(x=x, num_bits=num_bits)
-#     elif not isinstance(x, list):
-#         raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list, but had type(x)={type(x)}.')
-#     elif not all(isinstance(y, int) for y in x):
-#         raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list of integers, but had (type(y) for y in x)={(type(y) for y in x)}.')
-#     elif not isinstance(num_bits, int):
-#         raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless num_bits is an integer, but had type(num_bits)={type(num_bits)}.')
-#     elif num_bits < 1:
-#         raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless num_bits >= 1, but had num_bits={num_bits}.')
-#     raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless len(x) == {2**num_bits} but had len(x)={len(x)}.')
-#
+def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
+    """
+    Input a list of integers with power-of-two length and permute by reversing the digits in the binary expansions of
+    the indices. For example: if x = [172, 31, 56, 7], the indices are 0, 1, 2, 3, whose binary expansions are
+    00, 01, 10, 11. When reversed digit-by-digit, the binary expansions are 00, 10, 01, 11, or 0, 2, 1, 3. So bit_rev_cp
+    will output [x[0], x[2], x[1], x[3]] = [172, 56, 31, 7]. For another example: if
+    x = [172, 31, 56, 7, 202, 63, 17, 13], the indices are 0, 1, 2, 3, 4, 5, 6, 7, whose binary expansions are 000, 001,
+    010, 011, 100, 101, 110, 111. When reversed, the binary expansions are 000, 100, 010, 110, 001, 101, 011, 111, or
+    0, 4, 2, 6, 1, 5, 3, 7. So bit_rev_cp will output
+    [x[0], x[4], x[2], x[6], x[1], x[5], x[3], x[7] = [172, 202, 56, 17, 31, 63, 56, 7, 13].
+    :param x: List of integers
+    :type x: list[int]
+    :param num_bits: Number of bits required to describe the maximum index in x.
+    :type x: int
+    :return: List of integers with bit-reversed indices.
+    :rtype: list[int]
+    """
+    if isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(num_bits, int) and num_bits >= 1 and len(x) == 2 ** num_bits:
+        return _bit_rev_cp(x=x, num_bits=num_bits)
+    elif not isinstance(x, list):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list, but had type(x)={type(x)}.')
+    elif not all(isinstance(y, int) for y in x):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless x is a list of integers, but had (type(y) for y in x)={(type(y) for y in x)}.')
+    elif not isinstance(num_bits, int):
+        raise TypeError(f'Cannot bit_rev_cp with x, num_bits unless num_bits is an integer, but had type(num_bits)={type(num_bits)}.')
+    elif num_bits < 1:
+        raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless num_bits >= 1, but had num_bits={num_bits}.')
+    raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless len(x) == {2**num_bits} but had len(x)={len(x)}.')
+
 #
 # def _reduce(x: int) -> int:
 #     y: int = x % Q
