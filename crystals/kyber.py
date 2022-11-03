@@ -103,12 +103,12 @@ def bytes2int(x: bytes) -> int:
     if isinstance(x, bytes):
         return _bytes2int(x=x)
     raise TypeError(f'Cannot bytes2int with x unless x is a bytes object, but had type(x)={type(x)}.')
-#
-#
-# def _bit_rev(x: int, length: int) -> int:
-#     return bytes2int(x=int2bytes(x=x, length=length)[::-1])
-#
-#
+
+
+def _bit_rev(x: int, length: int) -> int:
+    return bytes2int(x=int2bytes(x=x, length=length)[::-1])
+
+
 # def bit_rev(x: int, length: int) -> int:
 #     """
 #     Reverse the bits in the binary expansion of x
