@@ -64,28 +64,28 @@ def _int2bytes(x: int, length: int) -> bytes:
     return bin(x)[2:].encode().zfill(length)
 
 
-# def int2bytes(x: int, length: int = LOG_K) -> bytes:
-#     """
-#     Essentially the encode function from the specs for a single integer: write the binary expansion of 'x', fill out
-#     to take up 'length' bits. NOTE: output of this function is a bytes object consisting of 'length//8' bytes.
-#
-#     :param x: Input integer to be encoded as bytes.
-#     :type x: int
-#     :param length: Length
-#     :type length: int
-#
-#     :return: Bytes representation of input x
-#     :rtype: bytes
-#     """
-#     if isinstance(x, int) and isinstance(length, int) and 0 <= x < 2**length:
-#         return _int2bytes(x=x, length=length)
-#     elif not isinstance(x, int):
-#         raise TypeError(f'Cannot int2bytes with x, length unless x is an integer, but had type(x)={type(x)}.')
-#     elif not isinstance(length, int):
-#         raise TypeError(f'Cannot int2bytes with x, length unless length is an integer, but had type(length)={type(length)}.')
-#     raise ValueError(f'Cannot int2bytes with x, length unless 0 <= x < {2**length}, but had x={x}.')
-#
-#
+def int2bytes(x: int, length: int = LOG_K) -> bytes:
+    """
+    Essentially the encode function from the specs for a single integer: write the binary expansion of 'x', fill out
+    to take up 'length' bits. NOTE: output of this function is a bytes object consisting of 'length//8' bytes.
+
+    :param x: Input integer to be encoded as bytes.
+    :type x: int
+    :param length: Length
+    :type length: int
+
+    :return: Bytes representation of input x
+    :rtype: bytes
+    """
+    if isinstance(x, int) and isinstance(length, int) and 0 <= x < 2**length:
+        return _int2bytes(x=x, length=length)
+    elif not isinstance(x, int):
+        raise TypeError(f'Cannot int2bytes with x, length unless x is an integer, but had type(x)={type(x)}.')
+    elif not isinstance(length, int):
+        raise TypeError(f'Cannot int2bytes with x, length unless length is an integer, but had type(length)={type(length)}.')
+    raise ValueError(f'Cannot int2bytes with x, length unless 0 <= x < {2**length}, but had x={x}.')
+
+
 # def _bytes2int(x: bytes) -> int:
 #     return int(x, 2)
 #
