@@ -1,4 +1,4 @@
-from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp
+from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp
 from random import getrandbits
 import pytest
 from math import ceil, log2
@@ -134,4 +134,24 @@ BIT_REV_CP_CASES = [
 
 @pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
 def test_bit_rev_cp(x, expected_output):
-    assert _bit_rev_cp(x, ceil(log2(len(x)))) == expected_output
+    assert _bit_rev_cp(x=x, num_bits=ceil(log2(len(x)))) == expected_output
+
+
+def test_bit_rev_cp_failures():
+    with pytest.raises(TypeError):
+        bit_rev_cp(x=3, num_bits=2)
+
+    with pytest.raises(TypeError):
+        bit_rev_cp(x=['hello world', 0.001], num_bits=2)
+
+    with pytest.raises(TypeError):
+        bit_rev_cp(x=['hello world', 0.001], num_bits=0.001)
+
+    with pytest.raises(ValueError):
+        bit_rev_cp(x=list(range(8)), num_bits=0)
+
+    with pytest.raises(ValueError):
+        bit_rev_cp(x=list(range(8)), num_bits=2)
+
+    with pytest.raises(ValueError):
+        bit_rev_cp(x=list(range(8)), num_bits=4)
