@@ -1,7 +1,7 @@
-from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two
+from crystals.kyber import _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp
 from random import getrandbits
 import pytest
-from random import randbytes
+from math import ceil, log2
 
 
 SAMPLE_SIZE: int = 2**10
@@ -122,3 +122,16 @@ IS_POW_TWO_CASES = [
 @pytest.mark.parametrize("x,expected_output", IS_POW_TWO_CASES)
 def test_is_pow_two(x, expected_output):
     assert is_pow_two(x=x) == expected_output
+
+
+BIT_REV_CP_CASES = [
+    ([0, 1], [0, 1]),
+    ([0, 1, 2, 3], [0, 2, 1, 3]),
+    ([0, 1, 2, 3, 4, 5, 6, 7], [0, 4, 2, 6, 1, 5, 3, 7]),
+    ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15])
+]
+
+
+@pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
+def test_bit_rev_cp(x, expected_output):
+    assert _bit_rev_cp(x, ceil(log2(len(x)))) == expected_output
