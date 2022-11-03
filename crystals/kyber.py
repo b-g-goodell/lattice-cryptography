@@ -143,10 +143,10 @@ def is_pow_two(x: int) -> bool:
     return False
 
 
-# def _bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
-#     return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
-#
-#
+def _bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
+    return [x[bit_rev(x=i, length=num_bits)] for i in range(len(x))]
+
+
 # def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
 #     """
 #     Input a list of integers with power-of-two length and permute by reversing the digits in the binary expansions of
