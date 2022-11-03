@@ -86,10 +86,10 @@ def int2bytes(x: int, length: int = LOG_K) -> bytes:
     raise ValueError(f'Cannot int2bytes with x, length unless 0 <= x < {2**length}, but had x={x}.')
 
 
-# def _bytes2int(x: bytes) -> int:
-#     return int(x, 2)
-#
-#
+def _bytes2int(x: bytes) -> int:
+    return int(x, 2)
+
+
 # def bytes2int(x: bytes) -> int:
 #     """
 #     Essentially the decode function from the specs for a single integer, interprets the input bytes object as the binary
