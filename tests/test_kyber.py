@@ -1,9 +1,16 @@
-from crystals.kyber import *
+from crystals.kyber import _int2bytes
 import pytest
 from random import randbytes
 
 
 SAMPLE_SIZE: int = 2**10
+
+
+def test_int2bytes():
+    with pytest.raises(TypeError):
+        _int2bytes(x='hello world', length=17)
+        _int2bytes(x=0.001, length=17)
+    assert _int2bytes(x=7, length=17) == b'00000000000000111'
 
 
 # def int2bytes_inverse_of_bytes2int():
