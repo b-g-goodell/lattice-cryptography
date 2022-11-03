@@ -60,10 +60,10 @@ CCA_KEM_PK_LEN: int = CPA_PKE_PK_LEN
 CCA_KEM_CIPHERTEXT_LEN: int = CPA_PKE_CIPHERTEXT_LEN
 
 
-# def _int2bytes(x: int, length: int = LOG_K) -> bytes:
-#     return bin(x)[2:].encode().zfill(length)
-#
-#
+def _int2bytes(x: int, length: int) -> bytes:
+    return bin(x)[2:].encode().zfill(length)
+
+
 # def int2bytes(x: int, length: int = LOG_K) -> bytes:
 #     """
 #     Essentially the encode function from the specs for a single integer: write the binary expansion of 'x', fill out
