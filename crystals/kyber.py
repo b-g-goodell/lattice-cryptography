@@ -109,27 +109,27 @@ def _bit_rev(x: int, length: int) -> int:
     return bytes2int(x=int2bytes(x=x, length=length)[::-1])
 
 
-# def bit_rev(x: int, length: int) -> int:
-#     """
-#     Reverse the bits in the binary expansion of x
-#     :param x: Input integer whose bits are to be reversed
-#     :type x: int
-#     :param length: Length of binary expansion
-#     :type length: int
-#     :return: Integer whose binary expansion is the reverse of the input x
-#     :rtype: int
-#     """
-#     if isinstance(length, int) and length >= 1 and isinstance(x, int) and 0 <= x < 2 ** length:
-#         return _bit_rev(x=x, length=length)
-#     elif not isinstance(x, int):
-#         raise TypeError(f'Cannot bit_rev with x, length unless x is an integer, but had type(x)={type(x)}.')
-#     elif not isinstance(length, int):
-#         raise TypeError(f'Cannot bit_rev with x, length unless length is an integer, but had type(length)={type(length)}.')
-#     elif length < 1:
-#         raise ValueError(f'Cannot bit_rev with x, length unless length >= 1, but had length={length}.')
-#     raise ValueError(f'Cannot bit_rev with x, length unless 0 <= x < {2**length} but had x={x}.')
-#
-#
+def bit_rev(x: int, length: int) -> int:
+    """
+    Reverse the bits in the binary expansion of x
+    :param x: Input integer whose bits are to be reversed
+    :type x: int
+    :param length: Length of binary expansion
+    :type length: int
+    :return: Integer whose binary expansion is the reverse of the input x
+    :rtype: int
+    """
+    if isinstance(length, int) and length >= 1 and isinstance(x, int) and 0 <= x < 2 ** length:
+        return _bit_rev(x=x, length=length)
+    elif not isinstance(x, int):
+        raise TypeError(f'Cannot bit_rev with x, length unless x is an integer, but had type(x)={type(x)}.')
+    elif not isinstance(length, int):
+        raise TypeError(f'Cannot bit_rev with x, length unless length is an integer, but had type(length)={type(length)}.')
+    elif length < 1:
+        raise ValueError(f'Cannot bit_rev with x, length unless length >= 1, but had length={length}.')
+    raise ValueError(f'Cannot bit_rev with x, length unless 0 <= x < {2**length} but had x={x}.')
+
+
 # def is_pow_two(x: int) -> bool:
 #     """
 #     Check whether input integer is a (positive) power-of-two.
