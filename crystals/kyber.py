@@ -176,28 +176,28 @@ def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
         raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless num_bits >= 1, but had num_bits={num_bits}.')
     raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless len(x) == {2**num_bits} but had len(x)={len(x)}.')
 
-#
-# def _reduce(x: int) -> int:
-#     y: int = x % Q
-#     z: int = y - HALF_MODULUS - 1
-#     w: int = y - (1 + (z >> LOG_MODULUS)) * Q
-#     return w
-#
-#
-# def reduce(x: int) -> int:
-#     """
-#     Compute some integer w such that -MODULUS//2 <= w <= MODULUS//2 and such that (x-w) % MODULUS == 0, in constant
-#     time.
-#     :param x: Input integer
-#     :type x: int
-#     :return: "Centered" representative of x % MODULUS.
-#     :rtype: int
-#     """
-#     if isinstance(x, int):
-#         return _reduce(x=x)
-#     raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
-#
-#
+
+def _reduce(x: int) -> int:
+    y: int = x % Q
+    z: int = y - HALF_MODULUS - 1
+    w: int = y - (1 + (z >> LOG_MODULUS)) * Q
+    return w
+
+
+def reduce(x: int) -> int:
+    """
+    Compute some integer w such that -MODULUS//2 <= w <= MODULUS//2 and such that (x-w) % MODULUS == 0, in constant
+    time.
+    :param x: Input integer
+    :type x: int
+    :return: "Centered" representative of x % MODULUS.
+    :rtype: int
+    """
+    if isinstance(x, int):
+        return _reduce(x=x)
+    raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
+
+
 # def _round_up(x: float | int) -> int:
 #     ceil_x: int = ceil(x)
 #     if ceil_x - x < 0.5:
