@@ -198,27 +198,27 @@ def reduce(x: int) -> int:
     raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
 
 
-# def _round_up(x: float | int) -> int:
-#     ceil_x: int = ceil(x)
-#     if ceil_x - x < 0.5:
-#         return ceil_x
-#     return floor(x)
-#
-#
-# def round_up(x: float | int) -> int:
-#     """
-#     Round an input float (or integer) to the nearest integer, so that a float ending with the decimal .5 rounds up.
-#
-#     :param x: Input number
-#     :type x: float or integer
-#     :return: Integer closest to x, (rounding up for floats ending in .5).
-#     :rtype: int
-#     """
-#     if isinstance(x, float) or isinstance(x, int):
-#         return _round_up(x=x)
-#     raise TypeError(f'Cannot round_up with x unless x is a float or an int, but had type(x)={type(x)}.')
-#
-#
+def _round_up(x: float | int) -> int:
+    ceil_x: int = ceil(x)
+    if ceil_x - x <= 0.5:
+        return ceil_x
+    return floor(x)
+
+
+def round_up(x: float | int) -> int:
+    """
+    Round an input float (or integer) to the nearest integer, so that a float ending with the decimal .5 rounds up.
+
+    :param x: Input number
+    :type x: float or integer
+    :return: Integer closest to x, (rounding up for floats ending in .5).
+    :rtype: int
+    """
+    if isinstance(x, float) or isinstance(x, int):
+        return _round_up(x=x)
+    raise TypeError(f'Cannot round_up with x unless x is a float or an int, but had type(x)={type(x)}.')
+
+
 # def _parse_one(x: bytes) -> tuple[list[int], int]:
 #     """
 #     Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
