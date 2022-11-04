@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up
 from random import getrandbits
 import pytest
 from math import ceil, log2
@@ -163,11 +163,11 @@ def test_bit_rev_cp_full(x, expected_output):
 
 REDUCE_CASES = [(_, _) if _ <= Q//2 else (_, _ - Q) for _ in list(range(Q))]
 
-
 @pytest.mark.parametrize("x, expected_output", REDUCE_CASES)
 def test_reduce(x, expected_output):
     assert _reduce(x=x) == expected_output
     assert reduce(x=x) == expected_output
+
 
 def test_reduce_fail():
     with pytest.raises(TypeError):
@@ -175,3 +175,21 @@ def test_reduce_fail():
 
     with pytest.raises(TypeError):
         reduce(x=0.001)
+
+
+def test_round_up():
+    assert _round_up(x=0.5) == 1
+    assert _round_up(x=0.499) == 0
+    for x in range(10):
+        assert _round_up(x=x) == x
+
+    assert round_up(x=0.5) == 1
+    assert round_up(x=0.499) == 0
+    for x in range(10):
+        assert round_up(x=x) == x
+
+    with pytest.raises(TypeError):
+        assert round_up(x='Hello world')
+
+    with pytest.raises(TypeError):
+        assert round_up(x=None)
