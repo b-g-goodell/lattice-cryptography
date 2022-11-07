@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -442,3 +442,27 @@ def test_cbd_polycoefs():
     assert result.k1 == test_num_rows
     assert result.k2 == test_num_cols
     assert all(z == 3 for x in result.vals for y in x for z in y)
+
+    result: PolyCoefs = cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+    assert isinstance(result, PolyCoefs)
+
+    with pytest.raises(TypeError):
+        cbd_polycoefs(x='hello world', eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+
+    with pytest.raises(ValueError):
+        cbd_polycoefs(x=give_me_a_three, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+
+    with pytest.raises(TypeError):
+        cbd_polycoefs(x=test_val, eta='hello world', num_rows=test_num_rows, num_cols=test_num_cols)
+
+    with pytest.raises(TypeError):
+        cbd_polycoefs(x=test_val, eta=test_eta, num_rows='test_num_rows', num_cols=test_num_cols)
+
+    with pytest.raises(ValueError):
+        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=0, num_cols=test_num_cols)
+
+    with pytest.raises(TypeError):
+        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols='test_num_cols')
+
+    with pytest.raises(ValueError):
+        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=0)

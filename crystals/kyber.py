@@ -705,41 +705,41 @@ def _cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 
     return PolyCoefs(vals=vals, k1=num_rows, k2=num_cols)
 
 
-# def cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 1) -> PolyCoefs:
-#     """
-#     Sample a matrix of polynomials with num_rows rows, num_cols columns, degrees N, and such that each coefficient is in
-#     the list [-eta, -eta + 1, ..., eta - 1, eta]. Works by calling cbd_eta for each polynomial in the matrix.
-#
-#     :param x: Input bytes
-#     :type x: bytes
-#     :param eta: Integer bound eta
-#     :type eta: int
-#     :param num_rows: Number of rows.
-#     :type num_rows: int
-#     :param num_cols: Number of columns.
-#     :type num_cols: int
-#
-#     :return: PolyCoefs object
-#     :rtype: PolyCoefs
-#     """
-#     if isinstance(x, bytes) and len(x) >= num_rows*num_cols*N*2*eta//8 and isinstance(eta, int) and eta >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1:
-#         return _cbd_polycoefs(x=x, eta=eta, num_rows=num_rows, num_cols=num_cols)
-#     elif not isinstance(x, bytes):
-#         raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless x is a bytes object, but had type(x)={type(x)}.')
-#     elif len(x) < num_rows*num_cols*N*2*eta//8:
-#         raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless len(x) >= {num_rows*num_cols*N*2*eta//8} but had len(x)={len(x)}.')
-#     elif not isinstance(eta, int):
-#         raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless eta is an integer, but had type(eta)={type(eta)}.')
-#     elif eta < 1:
-#         raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless eta >= 1, but had eta={eta}.')
-#     elif not isinstance(num_rows, int):
-#         raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_rows is an integer, but had type(num_rows)={type(num_rows)}.')
-#     elif num_rows < 1:
-#         raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_rows >= 1, but had num_rows={num_rows}.')
-#     elif not isinstance(num_cols, int):
-#         raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols is an integer, but had type(num_cols)={type(num_cols)}.')
-#     raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols >= 1, but had num_cols={num_cols}.')
-#
+def cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 1) -> PolyCoefs:
+    """
+    Sample a matrix of polynomials with num_rows rows, num_cols columns, degrees N, and such that each coefficient is in
+    the list [-eta, -eta + 1, ..., eta - 1, eta]. Works by calling cbd_eta for each polynomial in the matrix.
+
+    :param x: Input bytes
+    :type x: bytes
+    :param eta: Integer bound eta
+    :type eta: int
+    :param num_rows: Number of rows.
+    :type num_rows: int
+    :param num_cols: Number of columns.
+    :type num_cols: int
+
+    :return: PolyCoefs object
+    :rtype: PolyCoefs
+    """
+    if isinstance(x, bytes) and len(x) >= num_rows*num_cols*N*2*eta//8 and isinstance(eta, int) and eta >= 1 and isinstance(num_rows, int) and num_rows >= 1 and isinstance(num_cols, int) and num_cols >= 1:
+        return _cbd_polycoefs(x=x, eta=eta, num_rows=num_rows, num_cols=num_cols)
+    elif not isinstance(x, bytes):
+        raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless x is a bytes object, but had type(x)={type(x)}.')
+    elif len(x) < num_rows*num_cols*N*2*eta//8:
+        raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless len(x) >= {num_rows*num_cols*N*2*eta//8} but had len(x)={len(x)}.')
+    elif not isinstance(eta, int):
+        raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless eta is an integer, but had type(eta)={type(eta)}.')
+    elif eta < 1:
+        raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless eta >= 1, but had eta={eta}.')
+    elif not isinstance(num_rows, int):
+        raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_rows is an integer, but had type(num_rows)={type(num_rows)}.')
+    elif num_rows < 1:
+        raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_rows >= 1, but had num_rows={num_rows}.')
+    elif not isinstance(num_cols, int):
+        raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols is an integer, but had type(num_cols)={type(num_cols)}.')
+    raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols >= 1, but had num_cols={num_cols}.')
+
 #
 # def _compress_one_int(x: int, d: int, p: int = Q) -> int:
 #     # We rename q to p to avoid ambiguity with the constant Q
