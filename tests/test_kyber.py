@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -407,3 +407,23 @@ def test_polyntt():
         PolyNTT(vals=[[[17, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
     with pytest.raises(ValueError):
         PolyNTT(vals=[[[-9, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+
+
+def test_cbd_eta():
+    test_eta: int = 3
+    give_me_a_three: bytes = b'111000'
+    test_val: bytes = bytes(0)
+    for _ in range(N):
+        test_val += give_me_a_three
+    expected_result: int = [3 for _ in range(N)]
+    assert _cbd_eta(x=test_val, eta=test_eta) == expected_result
+    assert cbd_eta(x=test_val, eta=test_eta) == expected_result
+
+    give_me_a_negative_three: bytes = b'000111'
+    test_val: bytes = bytes(0)
+    for _ in range(N):
+        test_val += give_me_a_negative_three
+    expected_result: int = [-3 for _ in range(N)]
+    assert _cbd_eta(x=test_val, eta=test_eta) == expected_result
+    assert cbd_eta(x=test_val, eta=test_eta) == expected_result
+
