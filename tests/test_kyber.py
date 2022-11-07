@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -502,3 +502,12 @@ DECOMPRESS_ONE_INT_CASES = [
 @pytest.mark.parametrize("x,d,p,expected_result", DECOMPRESS_ONE_INT_CASES)
 def test_decompress_one_int(x, d, p, expected_result):
     assert _decompress_one_int(x=x, d=d, p=p) == expected_result
+
+
+ENCODE_ONE_INT_CASES = [
+    (i, j, int2bytes(x=i, length=j)) for j in range(1, 3) for i in range(2**j)
+]
+
+@pytest.mark.parametrize("x,m,expected_result", ENCODE_ONE_INT_CASES)
+def test_encode_m_one_int(x, m, expected_result):
+    assert _encode_m_one_int(x=x, m=m)

@@ -794,49 +794,49 @@ def _decompress_one_int(x: int, d: int, p: int = Q) -> int:
     return round_up(x=x * p / 2 ** d)
 
 
-# def _decompress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
-#     return [_decompress_one_int(x=y, d=d, p=p) for y in x]
-#
-#
-# def _decompress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[list[list[int]]]:
-#     return [[_decompress_list_of_ints(x=z, d=d, p=p) for z in y] for y in x]
-#
-#
-# def _decompress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
-#     return PolyCoefs(vals=_decompress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
-#
-#
-# def decompress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> int | list[int] | list[list[list[int]]] | PolyCoefs:
-#     """
-#     Decompresses an integer modulo 2**d (or a list of them, or a list of lists of lists of them) or the integers modulo
-#     2**d in a PolyCoefs object to an integer modulo p as specified. Works by, essentially, looking at x/2**d as a ratio,
-#     and going that far along the list [0, 1, 2, ..., p-1].
-#
-#     :param x: Input data
-#     :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
-#     :param d: Input number of bits for compressed data
-#     :type d: int
-#     :param p: Input modulus
-#     :type p: int
-#
-#     :return: Decompressed data
-#     :rtype: int | list[int] | list[list[list[int]]] | PolyCoefs
-#     """
-#     if isinstance(x, int) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _decompress_one_int(x=x, d=d, p=p)
-#     elif isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _decompress_list_of_ints(x=x, d=d, p=p)
-#     elif _should_compress_many(x=x, d=d, p=p):
-#         return _decompress_many_ints(x=x, d=d, p=p)
-#     elif isinstance(x, PolyCoefs) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _decompress_polycoefs(x=x, d=d, p=p)
-#     raise ValueError(f'Cannot decompress with x, d, p unless x is an integer, or a list of integers, or a list of lists of lists of integers, or a PolyCoefs... and d is an integer >= 1, and p is an integer >= 2, but had (type(x), d, p)={(type(x), d, p)}.')
-#
-#
-# def _encode_m_one_int(x: int, m: int) -> bytes:
-#     return int2bytes(x=x, length=m)  # bin(x)[2:].zfill(m).encode()
-#
-#
+def _decompress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
+    return [_decompress_one_int(x=y, d=d, p=p) for y in x]
+
+
+def _decompress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[list[list[int]]]:
+    return [[_decompress_list_of_ints(x=z, d=d, p=p) for z in y] for y in x]
+
+
+def _decompress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
+    return PolyCoefs(vals=_decompress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
+
+
+def decompress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> int | list[int] | list[list[list[int]]] | PolyCoefs:
+    """
+    Decompresses an integer modulo 2**d (or a list of them, or a list of lists of lists of them) or the integers modulo
+    2**d in a PolyCoefs object to an integer modulo p as specified. Works by, essentially, looking at x/2**d as a ratio,
+    and going that far along the list [0, 1, 2, ..., p-1].
+
+    :param x: Input data
+    :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
+    :param d: Input number of bits for compressed data
+    :type d: int
+    :param p: Input modulus
+    :type p: int
+
+    :return: Decompressed data
+    :rtype: int | list[int] | list[list[list[int]]] | PolyCoefs
+    """
+    if isinstance(x, int) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _decompress_one_int(x=x, d=d, p=p)
+    elif isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _decompress_list_of_ints(x=x, d=d, p=p)
+    elif _should_compress_many(x=x, d=d, p=p):
+        return _decompress_many_ints(x=x, d=d, p=p)
+    elif isinstance(x, PolyCoefs) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _decompress_polycoefs(x=x, d=d, p=p)
+    raise ValueError(f'Cannot decompress with x, d, p unless x is an integer, or a list of integers, or a list of lists of lists of integers, or a PolyCoefs... and d is an integer >= 1, and p is an integer >= 2, but had (type(x), d, p)={(type(x), d, p)}.')
+
+
+def _encode_m_one_int(x: int, m: int) -> bytes:
+    return int2bytes(x=x, length=m)  # bin(x)[2:].zfill(m).encode()
+
+
 # def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
 #     result = bytes(0)
 #     for y in x:
