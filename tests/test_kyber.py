@@ -1,5 +1,5 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up
-from random import getrandbits
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one
+from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
 
@@ -193,3 +193,32 @@ def test_round_up():
 
     with pytest.raises(TypeError):
         assert round_up(x=None)
+
+
+def test_parse_one():
+    test_integers = [randrange(2**LOG_Q) for _ in range(10*N)]
+    test_integers_to_bytes = []
+    for i in range(0, len(test_integers)-1, 2):
+        first_byte = test_integers[i] % 256
+
+        tmp = test_integers[i+1] % 16
+        third_byte = (test_integers[i+1] - tmp)//16
+
+        second_byte_mod_16 = (test_integers[i] - first_byte)//256
+        second_byte_div_by_16_rd_down = test_integers[i+1] - 16*third_byte
+        second_byte = second_byte_mod_16 + 16*second_byte_div_by_16_rd_down
+
+        test_integers_to_bytes += [first_byte, second_byte, third_byte]
+
+        observed_integer_one = first_byte + 256 * (second_byte % 16)
+        observed_integer_two = (second_byte // 16) + 16 * third_byte
+
+        assert observed_integer_one == test_integers[i]
+        assert observed_integer_two == test_integers[i+1]
+
+    resulting_ints, index = _parse_one(x=bytes(test_integers_to_bytes))
+    expected_ints = [_ for _ in test_integers if _ < Q]
+    expected_ints = expected_ints[:N]
+    for i, (next_result_int, next_test_int) in enumerate(zip(resulting_ints, expected_ints)):
+        assert next_result_int == next_test_int
+
