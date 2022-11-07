@@ -689,6 +689,7 @@ def cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
     elif eta < 1:
         raise ValueError(f'Cannot cbd_eta with x, eta unless eta >= 1 but had eta={eta}.')
     elif not all(y == '0' or y == '1' for y in x.decode()):
+        # TODO: Refactor to avoid strings and to use bytes with binary expansions instead.
         raise ValueError(f'Cannot cbd_eta with a bytes object unless it decodes to a bitstring. The code can be modified to accept all bytes objects if this error comes up a lot. Please contact the developers.')
     raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(x)={type(x)}.')
 
