@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -271,7 +271,41 @@ def test_add():
     # too simple to bother testing
     pass
 
+
 def test_mul():
     # too simple to bother testing
     pass
 
+
+def test_polycoefs():
+    x: PolyCoefs = PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    assert x.q == 17
+    assert x.n == 2
+    assert x.k1 == 3
+    assert x.k2 == 2
+
+    # Some failure tests. not complete, but sufficient for now.
+    with pytest.raises(TypeError):
+        PolyCoefs(q='hello world', n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n='hello world', k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1='hello world', k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2='hello world', vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[['hello world', 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 'hello world'], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], ['hello world', 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 'hello world']], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[['hello world', 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 'hello world'], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [['hello world', 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(TypeError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 'hello world'], [6, 7]], [[8, 9], [10, 11]]])
