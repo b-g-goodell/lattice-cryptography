@@ -293,6 +293,15 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
 
 
 def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> bool:
+    """
+    Return true if both inputs are consistently sized (all rows have the same number of columns and all columns have the
+    same number of degrees) and both inputs have the same number of rows, columns, and degrees.
+
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
     num_rows_in_self: int = len(a_vals)
     num_rows_in_other: int = len(b_vals)
 
@@ -317,24 +326,42 @@ def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[in
     return same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg
 
 
-# def add(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
-#     result = deepcopy(a_vals)
-#     for i, row in enumerate(b_vals):
-#         for j, col in enumerate(row):
-#             for k, x in enumerate(col):
-#                 result[i][j][k] = reduce(x=result[i][j][k] + x)
-#     return result
-#
-#
-# def mul(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
-#     result = deepcopy(a_vals)
-#     for i, row in enumerate(b_vals):
-#         for j, col in enumerate(row):
-#             for k, x in enumerate(col):
-#                 result[i][j][k] = reduce(x=result[i][j][k] * x)
-#     return result
-#
-#
+def add(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
+    """
+    Input two lists of lists of lists of integers such that is_arithmetic_legal returns true, and simply adds their
+    entries coordinate-wise before reducing in constant time.
+
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
+    result = deepcopy(a_vals)
+    for i, row in enumerate(b_vals):
+        for j, col in enumerate(row):
+            for k, x in enumerate(col):
+                result[i][j][k] = reduce(x=result[i][j][k] + x)
+    return result
+
+
+def mul(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
+    """
+    Input two lists of lists of lists of integers such that is_arithmetic_legal returns true, and simply multiplies
+    their entries coordinate-wise before reducing in constant time.
+
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
+    result = deepcopy(a_vals)
+    for i, row in enumerate(b_vals):
+        for j, col in enumerate(row):
+            for k, x in enumerate(col):
+                result[i][j][k] = reduce(x=result[i][j][k] * x)
+    return result
+
+
 # class PolyCoefs(object):
 #     """
 #     Class for coefficient representations of matrices of polynomials. This class does not support arithmetic.
