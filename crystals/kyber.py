@@ -177,25 +177,32 @@ def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
     raise ValueError(f'Cannot bit_rev_cp with x, num_bits unless len(x) == {2**num_bits} but had len(x)={len(x)}.')
 
 
-def _reduce(x: int) -> int:
-    y: int = x % Q
-    z: int = y - HALF_Q - 1
-    w: int = y - (1 + (z >> LOG_Q)) * Q
+def _reduce(x: int, q: int) -> int:
+    y: int = x % q
+    z: int = y - q//2 - 1
+    w: int = y - (1 + (z >> ceil(log2(q)))) * q
     return w
 
 
-def reduce(x: int) -> int:
+def reduce(x: int, q: int = Q) -> int:
     """
     Compute some integer w such that -Q//2 <= w <= Q//2 and such that (x-w) % Q == 0, in constant
     time.
     :param x: Input integer
     :type x: int
+    :param q: Input modulus
+    :type q: int
     :return: "Centered" representative of x % Q.
     :rtype: int
     """
-    if isinstance(x, int):
-        return _reduce(x=x)
-    raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
+    if isinstance(x, int) and isinstance(q, int) and q >= 2:
+        return _reduce(x=x, q=q)
+    elif not isinstance(x, int):
+        raise TypeError(f'Cannot compute reduce for x unless x is an integer, but had type(x)={type(x)}.')
+    elif not isinstance(q, int):
+        raise TypeError(f'Cannot compute reduce with q unless q is an integer, but had type(q)={type(q)}.')
+    elif q < 2:
+        raise ValueError(f'Cannot compute reduce with q unless q >= 2, but had q={q}.')
 
 
 def _round_up(x: float | int) -> int:
@@ -292,7 +299,7 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
     raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N * (LOG_Q + SECBITS) // 8} or length at least {K * K * N * (LOG_Q + SECBITS) // 8} but had len(x)={len(x)}.')
 
 
-def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> bool:
+def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]], q_a: int, q_b: int) -> bool:
     """
     Return true if both inputs are consistently sized (all rows have the same number of columns and all columns have the
     same number of degrees) and both inputs have the same number of rows, columns, and degrees.
@@ -302,63 +309,70 @@ def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[in
     :return: A list of lists of lists of integers.
     :rtype: list[list[list[int]]]
     """
-    num_rows_in_self: int = len(a_vals)
-    num_rows_in_other: int = len(b_vals)
+    if q_a == q_b >= 1:
+        num_rows_in_self: int = len(a_vals)
+        num_rows_in_other: int = len(b_vals)
 
-    min_cols_in_self: int = min(len(x) for x in a_vals)
-    min_cols_in_other: int = min(len(x) for x in b_vals)
-    max_cols_in_self: int = max(len(x) for x in a_vals)
-    max_cols_in_other: int = max(len(x) for x in b_vals)
-    consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-    consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
+        min_cols_in_self: int = min(len(x) for x in a_vals)
+        min_cols_in_other: int = min(len(x) for x in b_vals)
+        max_cols_in_self: int = max(len(x) for x in a_vals)
+        max_cols_in_other: int = max(len(x) for x in b_vals)
+        consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
+        consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
 
-    min_deg_in_self: int = min(len(x) for i in a_vals for x in i)
-    min_deg_in_other: int = min(len(x) for i in b_vals for x in i)
-    max_deg_in_self: int = max(len(x) for i in a_vals for x in i)
-    max_deg_in_other: int = max(len(x) for i in b_vals for x in i)
-    consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-    consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
+        min_deg_in_self: int = min(len(x) for i in a_vals for x in i)
+        min_deg_in_other: int = min(len(x) for i in b_vals for x in i)
+        max_deg_in_self: int = max(len(x) for i in a_vals for x in i)
+        max_deg_in_other: int = max(len(x) for i in b_vals for x in i)
+        consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
+        consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
 
-    same_rows: bool = num_rows_in_self == num_rows_in_other
-    same_cols: bool = max_cols_in_self == max_cols_in_other
-    same_deg: bool = max_deg_in_self == max_deg_in_other
+        same_rows: bool = num_rows_in_self == num_rows_in_other
+        same_cols: bool = max_cols_in_self == max_cols_in_other
+        same_deg: bool = max_deg_in_self == max_deg_in_other
 
-    return same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg
+        return same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg
+    return False
 
 
-def add(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
+def add(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]], q: int) -> list[list[list[int]]]:
     """
     Input two lists of lists of lists of integers such that is_arithmetic_legal returns true, and simply adds their
     entries coordinate-wise before reducing in constant time.
 
-    :param x: Input bytes
-    :type x: bytes
-    :return: A list of lists of lists of integers.
+    :param a_vals: Input first matrix
+    :type a_vals: list[list[list[int]]]
+    :param b_vals: Input second matrix
+    :type b_vals: list[list[list[int]]]
+    :return: Coordinate-wise sum, reduced
     :rtype: list[list[list[int]]]
     """
     result = deepcopy(a_vals)
     for i, row in enumerate(b_vals):
         for j, col in enumerate(row):
             for k, x in enumerate(col):
-                result[i][j][k] = reduce(x=result[i][j][k] + x)
+                tmp = result[i][j][k] + x
+                result[i][j][k] = reduce(x=tmp, q=q)
     return result
 
 
-def mul(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
+def mul(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]], q: int) -> list[list[list[int]]]:
     """
     Input two lists of lists of lists of integers such that is_arithmetic_legal returns true, and simply multiplies
     their entries coordinate-wise before reducing in constant time.
 
-    :param x: Input bytes
-    :type x: bytes
-    :return: A list of lists of lists of integers.
+    :param a_vals: Input first matrix
+    :type a_vals: list[list[list[int]]]
+    :param b_vals: Input second matrix
+    :type b_vals: list[list[list[int]]]
+    :return: Coordinate-wise sum, reduced
     :rtype: list[list[list[int]]]
     """
     result = deepcopy(a_vals)
     for i, row in enumerate(b_vals):
         for j, col in enumerate(row):
             for k, x in enumerate(col):
-                result[i][j][k] = reduce(x=result[i][j][k] * x)
+                result[i][j][k] = reduce(x=result[i][j][k] * x, q=q)
     return result
 
 
@@ -372,6 +386,10 @@ class PolyCoefs(object):
             Integer modulus for all coefficients (0 <= coefficient < modulus)
         n: int
             Integer degree for all polynomials
+        k1: int
+            Number of rows
+        k2: int
+            Number of cols
         half_q: int
             Half of modulus, rounded down.
         log_q: int
@@ -446,9 +464,9 @@ class PolyCoefs(object):
             raise RuntimeError(f'Some unspecified error occurred while instantiating a PolyCoefs object. Please contact the developers with a description of the input to the __init__ function.')
 
     def __add__(self, other):
-        if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals):
+        if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals, q_a=self.q, q_b=other.q):
             result = deepcopy(self)
-            result.vals = add(a_vals=self.vals, b_vals=other.vals)
+            result.vals = add(a_vals=self.vals, b_vals=other.vals, q=self.q)
             return result
         raise ValueError(f'Cannot compute PolyCoefs.__add__ unless dimensions of both matrices match (dim mismatch). Check if number of rows, number of columns, and degrees all match.')
 
@@ -466,121 +484,176 @@ class PolyCoefs(object):
         raise NotImplementedError(f'Multiplication of PolyCoefs is not implemented. Apply the NTT and multiply the resulting PolyNTT objects instead.')
 
 
-# class PolyNTT(object):
-#     """
-#     Class for coefficient representations of matrices of polynomials. This class does not support arithmetic.
-#
-#     Attributes
-#     ----------
-#         modulus: int
-#             Integer modulus for all coefficients (0 <= coefficient < modulus)
-#         degree: int
-#             Integer degree for all polynomials
-#         halfmod: int
-#             Half of modulus, rounded down.
-#         logmod: int
-#             Number of bits to describe a coefficient.
-#         vals: list[list[list[int]]]
-#             2-dimensional matrix with list[int] entries, each entry is a coefficient representation of a polynomial.
-#         const_time: bool
-#             Flag for describing whether arithmetic is constant-time - in prod, always keep at True.
-#
-#     Methods
-#     -------
-#         __init__(self, vals, modulus, degree, const_time)
-#             Set self.modulus to modulus, self.degree to degree, compute self.halfmod and self.logmod, set self.vals to vals, and set self.const_time to const_time
-#         __add__(self, other)
-#             Checks if dimensions of self and other are compatible, and then return the sum of self and other.
-#         __radd__(self, other)
-#             If other == 0, return self, other call __add__. This way, we can use sum().
-#         __sub__(self, other)
-#             Deepcopy other, negate each entry in vals, and then call __add__.
-#         __mul__(self, other)
-#             Check if self is 1-by-1 or if self and other have dimensions match. Then, if self is 1-by-1, call _scalar_mul, otherwise call _matrix_mul.
-#         _scalar_mul(self, other)
-#             Multiply each polynomial in other by self.
-#         _matrix_mul(self, other)
-#             Multiply the matrices self and other coordinate-wise.
-#     """
-#     modulus: int = Q
-#     degree: int = N
-#     halfmod: int = HALF_Q
-#     logmod: int = LOG_Q
-#     vals: list[list[list[int]]] = []
-#     const_time: bool = True
-#
-#     def __init__(self, vals: list[list[list[int]]] | None, modulus: int = Q, degree: int = N, const_time: bool = True):
-#         self.modulus = modulus
-#         self.degree = degree
-#         self.halfmod = modulus//2
-#         self.logmod = ceil(log2(modulus))
-#         self.vals = vals
-#         self.const_time = const_time
-#
-#     def __add__(self, other):
-#         if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals):
-#             result = deepcopy(self)
-#             result.vals = add(a_vals=self.vals, b_vals=other.vals)
-#             return result
-#         raise ValueError(f'Cannot compute PolyNTT.__add__ unless dimensions of both matrices match (dim mismatch). Check if number of rows, number of columns, and degrees all match.')
-#
-#     def __radd__(self, other):
-#         if other == 0:
-#             return self
-#         return self.__add__(other=other)
-#
-#     def __sub__(self, other):
-#         negative_other = deepcopy(other)
-#         negative_other.vals = [[[-coef for coef in col] for col in row] for row in other.vals]
-#         return self.__add__(other=other)
-#
-#     def __mul__(self, other):
-#         num_rows_in_self: int = len(self.vals)
-#         num_rows_in_other: int = len(other.vals)
-#
-#         min_cols_in_self: int = min(len(x) for x in self.vals)
-#         min_cols_in_other: int = min(len(x) for x in other.vals)
-#         max_cols_in_self: int = max(len(x) for x in self.vals)
-#         max_cols_in_other: int = max(len(x) for x in other.vals)
-#         consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-#         consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
-#
-#         min_deg_in_self: int = min(len(x) for i in self.vals for x in i)
-#         min_deg_in_other: int = min(len(x) for i in other.vals for x in i)
-#         max_deg_in_self: int = max(len(x) for i in self.vals for x in i)
-#         max_deg_in_other: int = max(len(x) for i in other.vals for x in i)
-#         consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-#         consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
-#
-#         # same_rows: bool = num_rows_in_self == num_rows_in_other
-#         # same_cols: bool = max_cols_in_self == max_cols_in_other
-#         same_deg: bool = max_deg_in_self == max_deg_in_other
-#
-#         if num_rows_in_self == 1 and consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == 1 and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-#             return self._scalar_mul(other=other)
-#         elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-#             return self._matrix_mul(other=other)
-#         raise ValueError(
-#             'Cannot compute PolynomialNTTMatrix.__mul__ with unless self is 1x1 and both have consistent degrees, or where self is mxn, other is nxp, and both have consistent degrees (dim mismatch).')
-#
-#     def _scalar_mul(self, other):
-#         result = deepcopy(other)
-#         for i in range(len(other.vals)):
-#             for j in range(len(other.vals[0])):
-#                 for k in range(len(self.vals[0][0])):
-#                     result.ntt_reps[i][j][k] = reduce(x=self.vals[0][0][k] * other.vals[i][j][k])
-#         return result
-#
-#     def _matrix_mul(self, other):
-#         result = deepcopy(self)
-#         result.ntt_reps = [[[0]*len(self.vals[0][0])]*len(other.vals[0])]*len(self.vals)
-#         for i in range(len(self.vals)):
-#             for j in range(len(other.vals[0])):
-#                 for k in range(len(self.vals[0][0])):
-#                     result.ntt_reps[i][j][k] = reduce(x=sum(self.vals[i][l][k] * other.ntt_reps[l][j][k] for l in range(len(self.vals[0]))))
-#         return result
-#
-#
+class PolyNTT(object):
+    """
+    Class for coefficient representations of matrices of polynomials. This class does not support arithmetic.
+
+    Attributes
+    ----------
+        q: int
+            Integer modulus for all coefficients (0 <= coefficient < modulus)
+        n: int
+            Integer degree for all polynomials
+        k1: int
+            Number of rows
+        k2: int
+            Number of cols
+        half_q: int
+            Half of modulus, rounded down.
+        log_q: int
+            Number of bits to describe a coefficient.
+        vals: list[list[list[int]]]
+            2-dimensional matrix with list[int] entries, each entry is a coefficient representation of a polynomial.
+        const_time: bool
+            Flag for describing whether arithmetic is constant-time - in prod, always keep at True.
+
+    Methods
+    -------
+        __init__(self, vals, modulus, degree, const_time)
+            Set self.modulus to modulus, self.degree to degree, compute self.halfmod and self.logmod, set self.vals to vals, and set self.const_time to const_time
+        __add__(self, other)
+            Checks if dimensions of self and other are compatible, and then return the sum of self and other.
+        __radd__(self, other)
+            If other == 0, return self, other call __add__. This way, we can use sum().
+        __sub__(self, other)
+            Deepcopy other, negate each entry in vals, and then call __add__.
+        __mul__(self, other)
+            Check if self is 1-by-1 or if self and other have dimensions match. Then, if self is 1-by-1, call _scalar_mul, otherwise call _matrix_mul.
+        _scalar_mul(self, other)
+            Multiply each polynomial in other by self.
+        _matrix_mul(self, other)
+            Multiply the matrices self and other coordinate-wise.
+    """
+    q: int = Q
+    n: int = N
+    k1: int = K
+    k2: int = 1
+    half_q: int = HALF_Q
+    log_q: int = LOG_Q
+    vals: list[list[list[int]]] = []
+    const_time_flag: bool = True
+
+    def __init__(self, vals: list[list[list[int]]] | None, q: int = Q, n: int = N, k1: int = K, k2: int = 1,
+                 const_time_flag: bool = True):
+        if isinstance(q, int) and q >= 2 and isinstance(n, int) and n >= 1 and is_pow_two(x=n) and isinstance(k1, int) and k1 >= 1 and isinstance(k2, int) and k2 >= 1 and isinstance(const_time_flag, bool) and isinstance(vals, list) and all(isinstance(x, list) for x in vals) and all(isinstance(y, list) for x in vals for y in x) and all(isinstance(z, int) for x in vals for y in x for z in y) and len(vals) == k1 and all(len(x)==k2 for x in vals) and all(len(y) == n for x in vals for y in x) and (all(0 <= z < q for x in vals for y in x for z in y) or all(-q//2 <= z <= q//2 for x in vals for y in x for z in y)):
+            self.q = q
+            self.n = n
+            self.k1 = k1
+            self.k2 = k2
+            self.half_q = q // 2
+            self.log_q = ceil(log2(q))
+            self.vals = vals
+            self.const_time_flag = const_time_flag
+        elif not isinstance(q, int):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer modulus q, but had type(q)={type(q)}.')
+        elif q < 2:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with modulus q < 2 but had q={q}.')
+        elif not isinstance(n, int):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer degree n, but had type(n)={type(n)}.')
+        elif n < 1:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with degree n < 1 but had n={n}.')
+        elif not is_pow_two(x=n):
+            raise ValueError(f'Cannot instantiate PolyCoefs object with non-power-of-two degree n, but had n={n}.')
+        elif (q-1) % (2*n) != 0:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with modulus q and degree n such that (q-1) % (2*n) != 0, but had (q-1) % (2*n) = {(q-1) % (2*n)}.')
+        elif not isinstance(k1, int):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer number of rows k1, but had type(k1)={type(k1)}.')
+        elif k1 < 1:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with number of rows k1 < 1, but had k1={k1}.')
+        elif not isinstance(k2, int):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer number of columns k2, but had type(k2)={type(k2)}.')
+        elif k2 < 1:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with number of columns k2 < 1, but had k2={k2}.')
+        elif not isinstance(const_time_flag, bool):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-boolean const_time_flag, but had type(const_time_flag)={const_time_flag}.')
+        elif not isinstance(vals, list):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with non-list vals, but had type(vals)={type(vals)}.')
+        elif len(vals) != k1:
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals without k1 rows, but had (len(vals), k1)={(len(vals), k1)}.')
+        elif not all(isinstance(x, list) for x in vals):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with vals unless every row in vals is a list.')
+        elif not all(len(x) == k2 for x in vals):
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals unless every row in vals has k2={k2} columns.')
+        elif not all(isinstance(y, list) for x in vals for y in x):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with vals unless every column in every row is a list.')
+        elif not all(len(y) == n for x in vals for y in x):
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals unless every row and every column is a list with degree n={n}.')
+        elif not all(isinstance(z, int) for x in vals for y in x for z in y):
+            raise TypeError(f'Cannot instantiate PolyCoefs object with vals unless every row, column, and degree is an integer.')
+        elif not all(0 <= z < q for x in vals for y in x for z in y) and not all(-q//2 <= z < q//2 for x in vals for y in x for z in y):
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals unless every row, column, and degree is an integer modulo q.')
+        else:
+            raise RuntimeError(f'Some unspecified error occurred while instantiating a PolyCoefs object. Please contact the developers with a description of the input to the __init__ function.')
+
+    def __add__(self, other):
+        if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals, q_a=self.q, q_b=other.q):
+            result = deepcopy(self)
+            result.vals = add(a_vals=self.vals, b_vals=other.vals, q=self.q)
+            return result
+        raise ValueError(f'Cannot compute PolyNTT.__add__ unless dimensions of both matrices match (dim mismatch). Check if number of rows, number of columns, and degrees all match.')
+
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        return self.__add__(other=other)
+
+    def __sub__(self, other):
+        negative_other = deepcopy(other)
+        negative_other.vals = [[[-coef for coef in col] for col in row] for row in other.vals]
+        return self.__add__(other=other)
+
+    def __mul__(self, other):
+        num_rows_in_self: int = len(self.vals)
+        num_rows_in_other: int = len(other.vals)
+
+        min_cols_in_self: int = min(len(x) for x in self.vals)
+        min_cols_in_other: int = min(len(x) for x in other.vals)
+        max_cols_in_self: int = max(len(x) for x in self.vals)
+        max_cols_in_other: int = max(len(x) for x in other.vals)
+        consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
+        consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
+
+        min_deg_in_self: int = min(len(x) for i in self.vals for x in i)
+        min_deg_in_other: int = min(len(x) for i in other.vals for x in i)
+        max_deg_in_self: int = max(len(x) for i in self.vals for x in i)
+        max_deg_in_other: int = max(len(x) for i in other.vals for x in i)
+        consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
+        consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
+
+        # same_rows: bool = num_rows_in_self == num_rows_in_other
+        # same_cols: bool = max_cols_in_self == max_cols_in_other
+        same_deg: bool = max_deg_in_self == max_deg_in_other
+
+        if num_rows_in_self == 1 and consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == 1 and consistent_deg_in_self and consistent_deg_in_other and same_deg:
+            return self._scalar_mul(other=other)
+        elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
+            return self._matrix_mul(other=other)
+        raise ValueError(
+            'Cannot compute PolynomialNTTMatrix.__mul__ with unless self is 1x1 and both have consistent degrees, or where self is mxn, other is nxp, and both have consistent degrees (dim mismatch).')
+
+    def _scalar_mul(self, other):
+        result = deepcopy(other)
+        for i in range(len(other.vals)):
+            for j in range(len(other.vals[0])):
+                for k in range(len(self.vals[0][0])):
+                    result.vals[i][j][k] = reduce(x=self.vals[0][0][k] * other.vals[i][j][k], q=self.q)
+        return result
+
+    def _matrix_mul(self, other):
+        result = deepcopy(self)
+        result.k1 = self.k1
+        result.k2 = other.k2
+        result.vals = []
+        # result.vals = [[[0]*len(self.vals[0][0])]*len(other.vals[0])]*len(self.vals)
+        for i in range(len(self.vals)):
+            result.vals += [[]]
+            for j in range(len(other.vals[0])):
+                result.vals[-1] += [[]]
+                for k in range(len(self.vals[0][0])):
+                    result.vals[-1][-1] += [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(len(self.vals[0]))), q=self.q)]
+        return result
+
+
 # def _cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
 #     x_as_bits: list[int] = [int(y == '1') for y in x.decode()]
 #     result: list[int] = [0 for _ in range(N)]
