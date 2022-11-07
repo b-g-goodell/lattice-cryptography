@@ -504,10 +504,10 @@ def test_decompress_one_int(x, d, p, expected_result):
     assert _decompress_one_int(x=x, d=d, p=p) == expected_result
 
 
-ENCODE_ONE_INT_CASES = [
+ENCODE_M_ONE_INT_CASES = [
     (i, j, int2bytes(x=i, length=j)) for j in range(1, 3) for i in range(2**j)
 ]
 
-@pytest.mark.parametrize("x,m,expected_result", ENCODE_ONE_INT_CASES)
+@pytest.mark.parametrize("x,m,expected_result", ENCODE_M_ONE_INT_CASES)
 def test_encode_m_one_int(x, m, expected_result):
-    assert _encode_m_one_int(x=x, m=m)
+    assert _encode_m_one_int(x=x, m=m) == expected_result

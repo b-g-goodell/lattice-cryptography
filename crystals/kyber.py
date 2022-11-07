@@ -61,7 +61,14 @@ CCA_KEM_CIPHERTEXT_LEN: int = CPA_PKE_CIPHERTEXT_LEN
 
 
 def _int2bytes(x: int, length: int) -> bytes:
-    return bin(x)[2:].encode().zfill(length)
+    result: list[int] = []
+    x_as_bin: str = bin(x)[2:].zfill(8*length)
+    for i in range(length):
+        next_int: int = 0
+        for next_bit in x_as_bin[8*i:8*(i+1)][::-1]:
+            next_int += 2**int(next_bit == '1')
+        result += [next_int]
+    return bytes(result)
 
 
 def int2bytes(x: int, length: int = LOG_K) -> bytes:
@@ -77,17 +84,26 @@ def int2bytes(x: int, length: int = LOG_K) -> bytes:
     :return: Bytes representation of input x
     :rtype: bytes
     """
-    if isinstance(x, int) and isinstance(length, int) and 0 <= x < 2**length:
+    if isinstance(x, int) and isinstance(length, int) and length >= 1 and 0 <= x < 2**(length*8):
         return _int2bytes(x=x, length=length)
     elif not isinstance(x, int):
-        raise TypeError(f'Cannot int2bytes with x, length unless x is an integer, but had type(x)={type(x)}.')
+        raise TypeError(f'Cannot int2bytes with non-integer x, but had type(x)={type(x)}.')
     elif not isinstance(length, int):
-        raise TypeError(f'Cannot int2bytes with x, length unless length is an integer, but had type(length)={type(length)}.')
-    raise ValueError(f'Cannot int2bytes with x, length unless 0 <= x < {2**length}, but had x={x}.')
+        raise TypeError(f'Cannot int2bytes with non-integer length, but had type(length)={type(length)}.')
+    elif x < 0:
+        raise ValueError(f'Cannot int2bytes with negative integer x but had x={x}.')
+    elif length < 1:
+        raise ValueError(f'Cannot int2bytes without at least one byte but had length={length}.')
+    raise ValueError(f'Cannot _int2bytes with x, length unless input integer x={x} can be described with at most {length} bytes. Try calling _int2bytes with a larger length.')
 
 
 def _bytes2int(x: bytes) -> int:
-    return int(x, 2)
+    exponent: int = 1
+    result: int = 0
+    for y in x:
+        result += y * exponent
+        exponent *= 2
+    return y
 
 
 def bytes2int(x: bytes) -> int:
@@ -834,54 +850,54 @@ def decompress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p
 
 
 def _encode_m_one_int(x: int, m: int) -> bytes:
-    return int2bytes(x=x, length=m)  # bin(x)[2:].zfill(m).encode()
+    return int2bytes(x=x, length=m)
 
 
-# def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
-#     result = bytes(0)
-#     for y in x:
-#         result += _encode_m_one_int(x=y, m=m)
-#     return result
-#
-#
-# def _encode_m_many_ints(x: list[list[list[int]]], m: int) -> bytes:
-#     result = bytes(0)
-#     for y in x:
-#         for z in y:
-#             result += _encode_m_list_of_ints(x=z, m=m)
-#     return result
-#
-#
-# def _encode_m_matrix(x: PolyCoefs | PolyNTT, m: int) -> bytes:
-#     return _encode_m_many_ints(x=x.vals, m=m)
-#
-#
-# def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, m: int) -> bytes:
-#     """
-#     We rename encode_l to encode_m to use m instead of l because l is an ambiguous character. Encodes an integer (or a
-#     list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to bytes. Works
-#     with the usual serialization... each piece of input data is an integer modulo p, and we just pad out the binary
-#     expansion of the input data to m bytes.
-#
-#     :param x: Input data
-#     :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
-#     :param m: Number of bytes
-#     :type m: int
-#
-#     :return: Encoded data
-#     :rtype: bytes
-#     """
-#     if isinstance(m, int) and m >= 1 and isinstance(x, int) and 0 <= x < 2 ** m:
-#         return _encode_m_one_int(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
-#         return _encode_m_list_of_ints(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2**m for y in x for z in y for w in z):
-#         return _encode_m_many_ints(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and (isinstance(x, PolyCoefs) or isinstance(x, PolyNTT)):
-#         return _encode_m_matrix(x=x, m=m)
-#     raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an m-bit integer, or a list of m-bit integers, or x is a list of lists of lists of m-bit integers, or x is a PolyCoefs, but had (type(x), m)={(type(x), m)}.')
-#
-#
+def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
+    result = bytes(0)
+    for y in x:
+        result += _encode_m_one_int(x=y, m=m)
+    return result
+
+
+def _encode_m_many_ints(x: list[list[list[int]]], m: int) -> bytes:
+    result = bytes(0)
+    for y in x:
+        for z in y:
+            result += _encode_m_list_of_ints(x=z, m=m)
+    return result
+
+
+def _encode_m_matrix(x: PolyCoefs | PolyNTT, m: int) -> bytes:
+    return _encode_m_many_ints(x=x.vals, m=m)
+
+
+def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, m: int) -> bytes:
+    """
+    We rename encode_l to encode_m to use m instead of l because l is an ambiguous character. Encodes an integer (or a
+    list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to bytes. Works
+    with the usual serialization... each piece of input data is an integer modulo p, and we just pad out the binary
+    expansion of the input data to m bytes.
+
+    :param x: Input data
+    :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
+    :param m: Number of bytes
+    :type m: int
+
+    :return: Encoded data
+    :rtype: bytes
+    """
+    if isinstance(m, int) and m >= 1 and isinstance(x, int) and 0 <= x < 2 ** m:
+        return _encode_m_one_int(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
+        return _encode_m_list_of_ints(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2**m for y in x for z in y for w in z):
+        return _encode_m_many_ints(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and (isinstance(x, PolyCoefs) or isinstance(x, PolyNTT)):
+        return _encode_m_matrix(x=x, m=m)
+    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an m-bit integer, or a list of m-bit integers, or x is a list of lists of lists of m-bit integers, or x is a PolyCoefs, but had (type(x), m)={(type(x), m)}.')
+
+
 # def _decode_m_one_int(x: bytes) -> int:
 #     # TODO: WRONG
 #     # light wrapper for bytes2int
