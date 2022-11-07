@@ -427,3 +427,18 @@ def test_cbd_eta():
     assert _cbd_eta(x=test_val, eta=test_eta) == expected_result
     assert cbd_eta(x=test_val, eta=test_eta) == expected_result
 
+
+def test_cbd_polycoefs():
+    test_eta: int = 3
+    test_num_rows: int = 2
+    test_num_cols: int = 3
+    give_me_a_three: bytes = b'111000'
+    test_val: bytes = bytes(0)
+    for _ in range(test_num_rows*test_num_cols*2*N*test_eta):
+        test_val += give_me_a_three
+
+    result = _cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+    assert isinstance(result, PolyCoefs)
+    assert result.k1 == test_num_rows
+    assert result.k2 == test_num_cols
+    assert all(z == 3 for x in result.vals for y in x for z in y)
