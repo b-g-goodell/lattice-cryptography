@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -221,6 +221,9 @@ def test_parse_one():
     for i, (next_result_int, next_test_int) in enumerate(zip(resulting_ints, expected_ints)):
         assert next_result_int == next_test_int
 
+    with pytest.raises(RuntimeError):
+        _parse_one(x=b'hello world')
+
 
 def test_parse_many():
     test_integers = [randrange(2**LOG_Q) for _ in range(10*K*K*N)]
@@ -247,3 +250,13 @@ def test_parse_many():
     assert all(len(y) == N for x in resulting_ints for y in x)
     assert all(isinstance(z, int) for x in resulting_ints for y in x for z in y)
     assert all(0 <= z < Q for x in resulting_ints for y in x for z in y)
+
+    with pytest.raises(RuntimeError):
+        _parse_many(x=b'hello world')
+
+
+def test_parse():
+    with pytest.raises(TypeError):
+        parse(x='hello world')
+    with pytest.raises(ValueError):
+        parse(x=b'hello world')
