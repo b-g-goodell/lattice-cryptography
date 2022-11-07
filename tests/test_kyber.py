@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -466,3 +466,29 @@ def test_cbd_polycoefs():
 
     with pytest.raises(ValueError):
         cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=0)
+
+
+COMPRESS_ONE_INT_CASES = [
+    (0, 1, 17, 0),
+    (1, 1, 17, 0),
+    (16, 1, 17, 0),
+    (2, 1, 17, 0),
+    (15, 1, 17, 0),
+    (3, 1, 17, 0),
+    (14, 1, 17, 0),
+    (4, 1, 17, 0),
+    (13, 1, 17, 0),
+    (5, 1, 17, 1),
+    (12, 1, 17, 1),
+    (6, 1, 17, 1),
+    (11, 1, 17, 1),
+    (7, 1, 17, 1),
+    (10, 1, 17, 1),
+    (8, 1, 17, 1),
+    (9, 1, 17, 1),
+]
+
+
+@pytest.mark.parametrize("x,d,p,expected_result", COMPRESS_ONE_INT_CASES)
+def test_compress_one_int(x, d, p, expected_result):
+    assert _compress_one_int(x=x,d=d,p=p) == expected_result
