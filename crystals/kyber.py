@@ -654,39 +654,45 @@ class PolyNTT(object):
         return result
 
 
-# def _cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
-#     x_as_bits: list[int] = [int(y == '1') for y in x.decode()]
-#     result: list[int] = [0 for _ in range(N)]
-#     for i in range(N):
-#         a: int = sum([x_as_bits[2*i*eta + j] for j in range(eta)])
-#         b: int = sum([x_as_bits[2*i*eta + eta + j] for j in range(eta)])
-#         result[i] = a - b
-#     return result
-#
-#
-# def cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
-#     """
-#     Sample a list of integers with length N from input bytes x, such that the integers are sampled from the centered
-#     binomial distribution (CBD) with support [-eta, -eta + 1, ..., eta - 1, eta]. Works by looking at x as a bitstring,
-#     and taking the difference of sums of sections of the bit string.
-#
-#     :param x: Input bytes
-#     :type x: bytes
-#     :param eta: Input bound.
-#     :type eta: int
-#
-#     :return: List of integers.
-#     :rtype: list[int]
-#     """
-#     if isinstance(x, bytes) and len(x) >= 2*N*eta//8 and isinstance(eta, int):
-#         return _cbd_eta(x=x, eta=eta)
-#     elif not isinstance(x, bytes):
-#         raise TypeError(f'Cannot cbd_eta with x, eta unless x is a bytes object, but type(x)={type(x)}.')
-#     elif len(x) < 2*N*eta//8:
-#         raise ValueError(f'Cannot cbd_eta with x, eta unless len(x)>={2*N*eta//8} but had len(x)={len(x)}.')
-#     raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(x)={type(x)}.')
-#
-#
+def _cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
+    x_as_bits: list[int] = [int(y == '1') for y in x.decode()]
+    result: list[int] = [0 for _ in range(N)]
+    for i in range(N):
+        a: int = sum([x_as_bits[2*i*eta + j] for j in range(eta)])
+        b: int = sum([x_as_bits[2*i*eta + eta + j] for j in range(eta)])
+        result[i] = a - b
+    return result
+
+
+def cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
+    """
+    Sample a list of integers with length N from input bytes x, such that the integers are sampled from the centered
+    binomial distribution (CBD) with support [-eta, -eta + 1, ..., eta - 1, eta]. Works by looking at x as a bitstring,
+    and taking the difference of sums of sections of the bit string.
+
+    :param x: Input bytes
+    :type x: bytes
+    :param eta: Input bound.
+    :type eta: int
+
+    :return: List of integers.
+    :rtype: list[int]
+    """
+    if isinstance(x, bytes) and len(x) >= 2*N*eta and isinstance(eta, int) and eta >= 1 and all(y == '0' or y == '1' for y in x.decode()):
+        return _cbd_eta(x=x, eta=eta)
+    elif not isinstance(x, bytes):
+        raise TypeError(f'Cannot cbd_eta with x, eta unless x is a bytes object, but type(x)={type(x)}.')
+    elif len(x) < 2*N*eta:
+        raise ValueError(f'Cannot cbd_eta with x, eta unless len(x)>={2*N*eta//8} but had len(x)={len(x)}.')
+    elif not isinstance(eta, int):
+        raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(eta)={type(eta)}.')
+    elif eta < 1:
+        raise ValueError(f'Cannot cbd_eta with x, eta unless eta >= 1 but had eta={eta}.')
+    elif not all(y == '0' or y == '1' for y in x.decode()):
+        raise ValueError(f'Cannot cbd_eta with a bytes object unless it decodes to a bitstring. The code can be modified to accept all bytes objects if this error comes up a lot. Please contact the developers.')
+    raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(x)={type(x)}.')
+
+
 # def _cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 1) -> PolyCoefs:
 #     vals: list[list[list[int]]] = []
 #     for i in range(num_rows):
