@@ -40,16 +40,16 @@ SEED_LEN: int = 32
 
 
 # Convenient constants derived from the parameters above
-TWICE_DEGREE: int = 2 * N
-LOG_TWICE_DEGREE: int = ceil(log2(TWICE_DEGREE))
-HALF_MODULUS: int = Q // 2
-LOG_MODULUS: int = ceil(log2(Q))
+TWICE_N: int = 2 * N
+LOG_TWICE_N: int = ceil(log2(TWICE_N))
+HALF_Q: int = Q // 2
+LOG_Q: int = ceil(log2(Q))
 LOG_K: int = ceil(log2(K))
-ZETAS: list[int] = [(ROU ** i) % Q for i in [TWICE_DEGREE // (2 ** (j + 1)) for j in range(LOG_TWICE_DEGREE)]]
-ZETA_INVERSES: list[int] = [(ROU_INVERSE ** i) % Q for i in [TWICE_DEGREE // (2 ** (j + 1)) for j in range(LOG_TWICE_DEGREE)]]
+ZETAS: list[int] = [(ROU ** i) % Q for i in [TWICE_N // (2 ** (j + 1)) for j in range(LOG_TWICE_N)]]
+ZETA_INVERSES: list[int] = [(ROU_INVERSE ** i) % Q for i in [TWICE_N // (2 ** (j + 1)) for j in range(LOG_TWICE_N)]]
 
-CPA_PKE_SK_LEN: int = LOG_MODULUS * K * N // 8
-CPA_PKE_PK_LEN: int = LOG_MODULUS * K * N // 8 + SEED_LEN
+CPA_PKE_SK_LEN: int = LOG_Q * K * N // 8
+CPA_PKE_PK_LEN: int = LOG_Q * K * N // 8 + SEED_LEN
 ENCODED_CPA_PKE_SK_LEN: int = CPA_PKE_SK_LEN // (K * N // 8)
 ENCODED_CPA_PKE_PK_LEN: int = (CPA_PKE_PK_LEN - SEED_LEN) // (K * N // 8)
 CPA_PKE_FIRST_CIPHERTEXT_LEN: int = D_U * K * N // 8
@@ -179,8 +179,8 @@ def bit_rev_cp(x: list[int], num_bits: int) -> list[int]:
 
 def _reduce(x: int) -> int:
     y: int = x % Q
-    z: int = y - HALF_MODULUS - 1
-    w: int = y - (1 + (z >> LOG_MODULUS)) * Q
+    z: int = y - HALF_Q - 1
+    w: int = y - (1 + (z >> LOG_Q)) * Q
     return w
 
 
@@ -219,35 +219,35 @@ def round_up(x: float | int) -> int:
     raise TypeError(f'Cannot round_up with x unless x is a float or an int, but had type(x)={type(x)}.')
 
 
-# def _parse_one(x: bytes) -> tuple[list[int], int]:
-#     """
-#     Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
-#     [0, 1, 2, 3, ..., MODULUS - 1] for MODULUS=3329, and the second entry is an integer describing the index of the
-#     first unused byte in x.
-#     TODO: Extend this to work for arbitrary N and arbitrary MODULUS.
-#     :param x: Input bytes
-#     :type x: bytes
-#     :return: A 2-tuple, where the first entry is a list of integers, and the second entry is an integer.
-#     :rtype: tuple[list[int], int]
-#     """
-#     i: int = 0
-#     j: int = 0
-#     result: list[int] = []
-#     while j < N and i+2 < len(x):
-#         d1 = x[i] + 256 * (x[i + 1] % 16)
-#         d2 = (x[i + 1] // 16) + 16 * x[i + 2]
-#         if d1 < Q:
-#             result += [d1]
-#             j += 1
-#         if d2 < Q and j < N:
-#             result += [d2]
-#             j += 1
-#         i += 3
-#     if len(result) < N:
-#         raise RuntimeError(f'Parsing failed! Did not have enough input bits to do the job.')
-#     return result, i
-#
-#
+def _parse_one(x: bytes) -> tuple[list[int], int]:
+    """
+    Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
+    [0, 1, 2, 3, ..., MODULUS - 1] for MODULUS=3329, and the second entry is an integer describing the index of the
+    first unused byte in x.
+    TODO: Extend this to work for arbitrary N and arbitrary MODULUS.
+    :param x: Input bytes
+    :type x: bytes
+    :return: A 2-tuple, where the first entry is a list of integers, and the second entry is an integer.
+    :rtype: tuple[list[int], int]
+    """
+    i: int = 0
+    j: int = 0
+    result: list[int] = []
+    while j < N and i+2 < len(x):
+        d1 = x[i] + 256 * (x[i + 1] % 16)
+        d2 = (x[i + 1] // 16) + 16 * x[i + 2]
+        if d1 < Q:
+            result += [d1]
+            j += 1
+        if d2 < Q and j < N:
+            result += [d2]
+            j += 1
+        i += 3
+    if len(result) < N:
+        raise RuntimeError(f'Parsing failed! Did not have enough input bits to do the job.')
+    return result, i
+
+
 # def _parse_many(x: bytes) -> list[list[list[int]]]:
 #     """
 #     Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
