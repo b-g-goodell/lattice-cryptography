@@ -746,54 +746,54 @@ def _compress_one_int(x: int, d: int, p: int = Q) -> int:
     return round_up(x=x * 2 ** d / p) % 2 ** d
 
 
-# def _compress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
-#     return [_compress_one_int(x=y, d=d, p=p) for y in x]
-#
-#
-# def _compress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[list[list[int]]]:
-#     return [[_compress_list_of_ints(x=z, d=d, p=p) for z in y] for y in x]
-#
-#
-# def _compress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
-#     return PolyCoefs(vals=_compress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
-#
-#
-# def _should_compress_many(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> bool:
-#     return isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2
-#
-#
-# def compress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> int | list[int] | list[list[list[int]]] | PolyCoefs:
-#     """
-#     Compresses an integer modulo p (or a list of them, or a list of lists of lists of them) or the integers modulo p in
-#     a PolyCoefs object to a d-bit integer as specified. Works by, essentially, looking at x/p as a ratio, and going that
-#     far along the list [0, 1, 2, ..., 2**d - 1].
-#
-#     :param x: Input data
-#     :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
-#     :param d: Input number of bits for compressed data
-#     :type d: int
-#     :param p: Input modulus
-#     :type p: int
-#
-#     :return: Compressed data
-#     :rtype: int | list[int] | list[list[list[int]]] | PolyCoefs
-#
-#     """
-#     if isinstance(x, int) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _compress_one_int(x=x, d=d, p=p)
-#     elif isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _compress_list_of_ints(x=x, d=d, p=p)
-#     elif _should_compress_many(x=x, d=d, p=p):
-#         return _compress_many_ints(x=x, d=d, p=p)
-#     elif isinstance(x, PolyCoefs) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
-#         return _compress_polycoefs(x=x, d=d, p=p)
-#     raise ValueError(f'Cannot compute compress for x, d, p unless x is an integer, a list of integers, or a list of lists of lists of integers, or a PolyCoefs... and d is an integer >= 1 and p is an integer >= 2, but had (type(x), d, p)={(type(x), d, p)}.')
-#
-#
-# def _decompress_one_int(x: int, d: int, p: int = Q) -> int:
-#     return round_up(x=x * p / 2 ** d)
-#
-#
+def _compress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
+    return [_compress_one_int(x=y, d=d, p=p) for y in x]
+
+
+def _compress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[list[list[int]]]:
+    return [[_compress_list_of_ints(x=z, d=d, p=p) for z in y] for y in x]
+
+
+def _compress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
+    return PolyCoefs(vals=_compress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
+
+
+def _should_compress_many(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> bool:
+    return isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2
+
+
+def compress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> int | list[int] | list[list[list[int]]] | PolyCoefs:
+    """
+    Compresses an integer modulo p (or a list of them, or a list of lists of lists of them) or the integers modulo p in
+    a PolyCoefs object to a d-bit integer as specified. Works by, essentially, looking at x/p as a ratio, and going that
+    far along the list [0, 1, 2, ..., 2**d - 1].
+
+    :param x: Input data
+    :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
+    :param d: Input number of bits for compressed data
+    :type d: int
+    :param p: Input modulus
+    :type p: int
+
+    :return: Compressed data
+    :rtype: int | list[int] | list[list[list[int]]] | PolyCoefs
+
+    """
+    if isinstance(x, int) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _compress_one_int(x=x, d=d, p=p)
+    elif isinstance(x, list) and all(isinstance(y, int) for y in x) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _compress_list_of_ints(x=x, d=d, p=p)
+    elif _should_compress_many(x=x, d=d, p=p):
+        return _compress_many_ints(x=x, d=d, p=p)
+    elif isinstance(x, PolyCoefs) and isinstance(d, int) and d >= 1 and isinstance(p, int) and p >= 2:
+        return _compress_polycoefs(x=x, d=d, p=p)
+    raise ValueError(f'Cannot compute compress for x, d, p unless x is an integer, a list of integers, or a list of lists of lists of integers, or a PolyCoefs... and d is an integer >= 1 and p is an integer >= 2, but had (type(x), d, p)={(type(x), d, p)}.')
+
+
+def _decompress_one_int(x: int, d: int, p: int = Q) -> int:
+    return round_up(x=x * p / 2 ** d)
+
+
 # def _decompress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
 #     return [_decompress_one_int(x=y, d=d, p=p) for y in x]
 #
