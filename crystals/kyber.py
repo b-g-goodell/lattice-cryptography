@@ -186,11 +186,11 @@ def _reduce(x: int) -> int:
 
 def reduce(x: int) -> int:
     """
-    Compute some integer w such that -MODULUS//2 <= w <= MODULUS//2 and such that (x-w) % MODULUS == 0, in constant
+    Compute some integer w such that -Q//2 <= w <= Q//2 and such that (x-w) % Q == 0, in constant
     time.
     :param x: Input integer
     :type x: int
-    :return: "Centered" representative of x % MODULUS.
+    :return: "Centered" representative of x % Q.
     :rtype: int
     """
     if isinstance(x, int):
@@ -222,9 +222,9 @@ def round_up(x: float | int) -> int:
 def _parse_one(x: bytes) -> tuple[list[int], int]:
     """
     Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
-    [0, 1, 2, 3, ..., MODULUS - 1] for MODULUS=3329, and the second entry is an integer describing the index of the
+    [0, 1, 2, 3, ..., Q - 1] for Q=3329, and the second entry is an integer describing the index of the
     first unused byte in x.
-    TODO: Extend this to work for arbitrary N and arbitrary MODULUS.
+    TODO: Extend this to work for arbitrary N and arbitrary Q.
     :param x: Input bytes
     :type x: bytes
     :return: A 2-tuple, where the first entry is a list of integers, and the second entry is an integer.
@@ -251,8 +251,8 @@ def _parse_one(x: bytes) -> tuple[list[int], int]:
 def _parse_many(x: bytes) -> list[list[list[int]]]:
     """
     Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
-    [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329, by calling _parse_one several times.
-    TODO: Extend this to work for arbitrary K, arbitrary N, and arbitrary MODULUS.
+    [0, 1, 2, 3, ..., Q-1] for Q=3329, by calling _parse_one several times.
+    TODO: Extend this to work for arbitrary K, arbitrary N, and arbitrary Q.
     :param x: Input bytes
     :type x: bytes
     :return: A list of lists of lists of integers.
@@ -271,11 +271,12 @@ def _parse_many(x: bytes) -> list[list[list[int]]]:
 def parse(x: bytes) -> list[int] | list[list[list[int]]]:
     """
     Parse an input bytes object into either a list of 256 integers, or a list of K=4 lists of K=4 lists of N=256
-    integers, each in the list [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329.
+    integers, each in the list [0, 1, 2, 3, ..., Q-1] for Q=3329.
 
-    Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream.
-    Our implementation is not compatible with the NIST standard: users will observe a different "A" matrix.
-    There is a small positive probability that parsing fails.
+    Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a
+    bytestream. Therefore, our implementation is not compatible with the NIST standard. The standard has no chance of
+    failing, but our implementation has a small positive probability of failing. However, if parsing does not
+    fail, then the resulting 'A' matrix should match the standard.
 
     :param x: Input bytes
     :type x: bytes
@@ -291,31 +292,31 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
     raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N * (LOG_Q + SECBITS) // 8} or length at least {K * K * N * (LOG_Q + SECBITS) // 8} but had len(x)={len(x)}.')
 
 
-# def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> bool:
-#     num_rows_in_self: int = len(a_vals)
-#     num_rows_in_other: int = len(b_vals)
-#
-#     min_cols_in_self: int = min(len(x) for x in a_vals)
-#     min_cols_in_other: int = min(len(x) for x in b_vals)
-#     max_cols_in_self: int = max(len(x) for x in a_vals)
-#     max_cols_in_other: int = max(len(x) for x in b_vals)
-#     consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-#     consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
-#
-#     min_deg_in_self: int = min(len(x) for i in a_vals for x in i)
-#     min_deg_in_other: int = min(len(x) for i in b_vals for x in i)
-#     max_deg_in_self: int = max(len(x) for i in a_vals for x in i)
-#     max_deg_in_other: int = max(len(x) for i in b_vals for x in i)
-#     consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-#     consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
-#
-#     same_rows: bool = num_rows_in_self == num_rows_in_other
-#     same_cols: bool = max_cols_in_self == max_cols_in_other
-#     same_deg: bool = max_deg_in_self == max_deg_in_other
-#
-#     return same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg
-#
-#
+def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> bool:
+    num_rows_in_self: int = len(a_vals)
+    num_rows_in_other: int = len(b_vals)
+
+    min_cols_in_self: int = min(len(x) for x in a_vals)
+    min_cols_in_other: int = min(len(x) for x in b_vals)
+    max_cols_in_self: int = max(len(x) for x in a_vals)
+    max_cols_in_other: int = max(len(x) for x in b_vals)
+    consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
+    consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
+
+    min_deg_in_self: int = min(len(x) for i in a_vals for x in i)
+    min_deg_in_other: int = min(len(x) for i in b_vals for x in i)
+    max_deg_in_self: int = max(len(x) for i in a_vals for x in i)
+    max_deg_in_other: int = max(len(x) for i in b_vals for x in i)
+    consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
+    consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
+
+    same_rows: bool = num_rows_in_self == num_rows_in_other
+    same_cols: bool = max_cols_in_self == max_cols_in_other
+    same_deg: bool = max_deg_in_self == max_deg_in_other
+
+    return same_rows and consistent_cols_in_self and consistent_cols_in_other and same_cols and consistent_deg_in_self and consistent_deg_in_other and same_deg
+
+
 # def add(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> list[list[list[int]]]:
 #     result = deepcopy(a_vals)
 #     for i, row in enumerate(b_vals):
@@ -361,8 +362,8 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
 #     """
 #     modulus: int = Q
 #     degree: int = N
-#     halfmod: int = HALF_MODULUS
-#     logmod: int = LOG_MODULUS
+#     halfmod: int = HALF_Q
+#     logmod: int = LOG_Q
 #     vals: list[list[list[int]]] = []
 #     const_time: bool = True
 #
@@ -433,8 +434,8 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
 #     """
 #     modulus: int = Q
 #     degree: int = N
-#     halfmod: int = HALF_MODULUS
-#     logmod: int = LOG_MODULUS
+#     halfmod: int = HALF_Q
+#     logmod: int = LOG_Q
 #     vals: list[list[list[int]]] = []
 #     const_time: bool = True
 #
@@ -806,10 +807,10 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
 #                     bit_rev_x[k + j + m // 2]: int = reduce(x=u - t)
 #                 else:
 #                     bit_rev_x[k + j]: int = (u + t) % Q
-#                     if bit_rev_x[k + j] > HALF_MODULUS:
+#                     if bit_rev_x[k + j] > HALF_Q:
 #                         bit_rev_x[k + j] = bit_rev_x[k + j] - Q
 #                     bit_rev_x[k + j + m // 2]: int = (u - t) % Q
-#                     if bit_rev_x[k + j + m // 2] > HALF_MODULUS:
+#                     if bit_rev_x[k + j + m // 2] > HALF_Q:
 #                         bit_rev_x[k + j + m // 2] = bit_rev_x[k + j + m // 2] - Q
 #                 w *= this_zeta
 #     if inv_flag:
@@ -820,7 +821,7 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
 #             bit_rev_x: list[int] = [reduce(x=(n_inv * i)) for i in bit_rev_x]
 #         else:
 #             bit_rev_x: list[int] = [(n_inv * i) % Q for i in bit_rev_x]
-#             bit_rev_x = [i if i <= HALF_MODULUS else i - Q for i in bit_rev_x]
+#             bit_rev_x = [i if i <= HALF_Q else i - Q for i in bit_rev_x]
 #     return bit_rev_x
 #
 #
