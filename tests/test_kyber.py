@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -260,3 +260,9 @@ def test_parse():
         parse(x='hello world')
     with pytest.raises(ValueError):
         parse(x=b'hello world')
+
+
+def test_is_arithmetic_legal():
+    assert is_arithmetic_legal(a_vals = [[[]]], b_vals=[[[]]])
+    assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[]]])
+
