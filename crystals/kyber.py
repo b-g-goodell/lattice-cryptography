@@ -35,7 +35,7 @@ D_U: int = 11
 D_V: int = 5
 ROU: int = 17
 ROU_INVERSE: int = 1175
-NEGATIVE_LOG_DELTA: int = 174  # in a sense, "target bits of security," although Kyber1024 claims only 128 bits of sec.
+SECBITS: int = 174  # in a sense, "target bits of security," although Kyber1024 claims only 128 bits of sec.
 SEED_LEN: int = 32
 
 
@@ -248,49 +248,49 @@ def _parse_one(x: bytes) -> tuple[list[int], int]:
     return result, i
 
 
-# def _parse_many(x: bytes) -> list[list[list[int]]]:
-#     """
-#     Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
-#     [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329, by calling _parse_one several times.
-#     TODO: Extend this to work for arbitrary K, arbitrary N, and arbitrary MODULUS.
-#     :param x: Input bytes
-#     :type x: bytes
-#     :return: A list of lists of lists of integers.
-#     :rtype: list[list[list[int]]]
-#     """
-#     result: list[list[list[int]]] = []
-#     starting_index: int = 0
-#     for i in range(K):
-#         result += [[]]
-#         for j in range(K):
-#             next_result, starting_index = _parse_one(x=x[starting_index:])
-#             result[-1] += [[next_result[0]]]
-#     return result
-#
-#
-# def parse(x: bytes) -> list[int] | list[list[list[int]]]:
-#     """
-#     Parse an input bytes object into either a list of 256 integers, or a list of K=4 lists of K=4 lists of N=256
-#     integers, each in the list [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329.
-#
-#     Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream.
-#     Our implementation is not compatible with the NIST standard: users will observe a different "A" matrix.
-#     There is a small positive probability that parsing fails.
-#
-#     :param x: Input bytes
-#     :type x: bytes
-#     :return: A list of lists of lists of integers.
-#     :rtype: list[list[list[int]]]
-#     """
-#     if isinstance(x, bytes) and len(x) == N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
-#         return _parse_one(x=x)[0]
-#     elif isinstance(x, bytes) and len(x) >= K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8:
-#         return _parse_many(x=x)
-#     elif not isinstance(x, bytes):
-#         raise TypeError(f'Cannot parse with x unless x is a bytes object, but had type(x)={type(x)}.')
-#     raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} or length at least {K*K*N*(LOG_MODULUS + NEGATIVE_LOG_DELTA)//8} but had len(x)={len(x)}.')
-#
-#
+def _parse_many(x: bytes) -> list[list[list[int]]]:
+    """
+    Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
+    [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329, by calling _parse_one several times.
+    TODO: Extend this to work for arbitrary K, arbitrary N, and arbitrary MODULUS.
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
+    result: list[list[list[int]]] = []
+    starting_index: int = 0
+    for i in range(K):
+        result += [[]]
+        for j in range(K):
+            next_result, starting_index = _parse_one(x=x[starting_index:])
+            result[-1] += [next_result]
+    return result
+
+
+def parse(x: bytes) -> list[int] | list[list[list[int]]]:
+    """
+    Parse an input bytes object into either a list of 256 integers, or a list of K=4 lists of K=4 lists of N=256
+    integers, each in the list [0, 1, 2, 3, ..., MODULUS-1] for MODULUS=3329.
+
+    Our implementation does NOT parse according to specifications, because we only input a list of bytes, not a bytestream.
+    Our implementation is not compatible with the NIST standard: users will observe a different "A" matrix.
+    There is a small positive probability that parsing fails.
+
+    :param x: Input bytes
+    :type x: bytes
+    :return: A list of lists of lists of integers.
+    :rtype: list[list[list[int]]]
+    """
+    if isinstance(x, bytes) and len(x) == N*(LOG_Q + SECBITS)//8:
+        return _parse_one(x=x)[0]
+    elif isinstance(x, bytes) and len(x) >= K*K*N*(LOG_Q + SECBITS)//8:
+        return _parse_many(x=x)
+    elif not isinstance(x, bytes):
+        raise TypeError(f'Cannot parse with x unless x is a bytes object, but had type(x)={type(x)}.')
+    raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N * (LOG_Q + SECBITS) // 8} or length at least {K * K * N * (LOG_Q + SECBITS) // 8} but had len(x)={len(x)}.')
+
+
 # def is_arithmetic_legal(a_vals: list[list[list[int]]], b_vals: list[list[list[int]]]) -> bool:
 #     num_rows_in_self: int = len(a_vals)
 #     num_rows_in_other: int = len(b_vals)
