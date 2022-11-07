@@ -740,12 +740,12 @@ def cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 1
         raise TypeError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols is an integer, but had type(num_cols)={type(num_cols)}.')
     raise ValueError(f'Cannot cbd_PolyCoefs with x, eta, num_rows, num_cols unless num_cols >= 1, but had num_cols={num_cols}.')
 
-#
-# def _compress_one_int(x: int, d: int, p: int = Q) -> int:
-#     # We rename q to p to avoid ambiguity with the constant Q
-#     return round_up(x=x * 2 ** d / p) % 2 ** d
-#
-#
+
+def _compress_one_int(x: int, d: int, p: int = Q) -> int:
+    # We rename q to p to avoid ambiguity with the constant Q
+    return round_up(x=x * 2 ** d / p) % 2 ** d
+
+
 # def _compress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
 #     return [_compress_one_int(x=y, d=d, p=p) for y in x]
 #
