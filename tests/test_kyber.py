@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -284,6 +284,19 @@ def test_polycoefs():
     assert x.k1 == 3
     assert x.k2 == 2
 
+    y: PolyCoefs = PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[5, 6], [7, 8]], [[9, 10], [11, 12]], [[13, 14], [15, 16]]])
+    assert y.q == 17
+    assert y.n == 2
+    assert y.k1 == 3
+    assert y.k2 == 2
+
+    z: PolyCoefs = x + y
+    assert z.q == 17
+    assert z.n == 2
+    assert z.k1 == 3
+    assert z.k2 == 2
+    assert z.vals == [[[5, 7], [-8, -6]], [[-4, -2], [0, 2]], [[4, 6], [8, -7]]]
+
     # Some failure tests. not complete, but sufficient for now.
     with pytest.raises(TypeError):
         PolyCoefs(q='hello world', n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
@@ -309,3 +322,88 @@ def test_polycoefs():
         PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [['hello world', 5], [6, 7]], [[8, 9], [10, 11]]])
     with pytest.raises(TypeError):
         PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 'hello world'], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(ValueError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[17, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+    with pytest.raises(ValueError):
+        PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[-9, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
+
+
+def test_polyntt():
+    x: PolyNTT = PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    assert x.q == 17
+    assert x.n == 2
+    assert x.k1 == 3
+    assert x.k2 == 2
+
+    y: PolyNTT = PolyNTT(vals=[[[5, 6], [7, 8]], [[9, 10], [11, 12]], [[13, 14], [15, 16]]], q=17, n=2, k1=3, k2=2)
+    assert y.q == 17
+    assert y.n == 2
+    assert y.k1 == 3
+    assert y.k2 == 2
+
+    z: PolyNTT = x + y
+    assert z.q == 17
+    assert z.n == 2
+    assert z.k1 == 3
+    assert z.k2 == 2
+    assert z.vals == [[[5, 7], [-8, -6]], [[-4, -2], [0, 2]], [[4, 6], [8, -7]]]
+
+    x: PolyNTT = PolyNTT(vals=[[[3, 4]]], q=17, n=2, k1=1, k2=1)
+    assert x.q == 17
+    assert x.n == 2
+    assert x.k1 == 1
+    assert x.k2 == 1
+
+    z: PolyNTT = x * y
+    assert z.q == 17
+    assert z.n == 2
+    assert z.k1 == 3
+    assert z.k2 == 2
+    assert z.vals == [[[-2, 7], [4, -2]], [[-7, 6], [-1, -3]], [[5, 5], [-6, -4]]]
+
+    x: PolyNTT = PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    assert x.q == 17
+    assert x.n == 2
+    assert x.k1 == 3
+    assert x.k2 == 2
+    y: PolyNTT = PolyNTT(vals=[[[1, 2]], [[3, 4]]], q=17, n=2, k1=2, k2=1)
+    assert y.q == 17
+    assert y.n == 2
+    assert y.k1 == 2
+    assert y.k2 == 1
+    z: PolyNTT = x * y
+    assert z.q == 17
+    assert z.n == 2
+    assert z.k1 == 3
+    assert z.k2 == 1
+    assert z.vals == [[[6, -3]], [[5, 4]], [[4, -6]]]
+
+    # Some failure tests. not complete, but sufficient for now.
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q='hello world', n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n='hello world', k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1='hello world', k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2='hello world')
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[['hello world', 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 'hello world'], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], ['hello world', 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 'hello world']], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[['hello world', 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 'hello world'], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [['hello world', 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(TypeError):
+        PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 'hello world'], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(ValueError):
+        PolyNTT(vals=[[[17, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
+    with pytest.raises(ValueError):
+        PolyNTT(vals=[[[-9, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
