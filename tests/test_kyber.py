@@ -65,37 +65,36 @@ def test_bytes2int_and_int2bytes_are_inverses():
 
 def test_bit_rev():
     with pytest.raises(TypeError):
-        bit_rev(x='hello world', length=LOG_SAMPLE_SIZE)
+        bit_rev(x='hello world', length_in_bits=LOG_SAMPLE_SIZE)
 
     with pytest.raises(TypeError):
-        bit_rev(x='hello world', length=0.001)
+        bit_rev(x='hello world', length_in_bits=0.001)
 
     with pytest.raises(TypeError):
-        bit_rev(x='hello world', length='hello world')
+        bit_rev(x='hello world', length_in_bits='hello world')
 
     with pytest.raises(TypeError):
-        bit_rev(x=0.001, length=LOG_SAMPLE_SIZE)
+        bit_rev(x=0.001, length_in_bits=LOG_SAMPLE_SIZE)
 
     with pytest.raises(TypeError):
-        bit_rev(x=0.001, length=0.001)
+        bit_rev(x=0.001, length_in_bits=0.001)
 
     with pytest.raises(TypeError):
-        bit_rev(x=0.001, length='hello world')
+        bit_rev(x=0.001, length_in_bits='hello world')
 
     with pytest.raises(ValueError):
-        bit_rev(x=1, length=0)
+        bit_rev(x=1, length_in_bits=0)
 
     with pytest.raises(ValueError):
-        bit_rev(x=7, length=2)
+        bit_rev(x=7, length_in_bits=2)
 
     length_in_bytes = max(1, ceil(LOG_SAMPLE_SIZE/8))
     for i in range(SAMPLE_SIZE):
-        x = int2bytes(x=i, length=length_in_bytes)
-        reversed_i = bit_rev(x=i, length=LOG_SAMPLE_SIZE)
-        reversed_x = int2bytes(x=reversed_i, length=length_in_bytes)
-        assert len(x) == len(reversed_x) == length_in_bytes
-        for j in range(length_in_bytes):
-            assert x[j] == reversed_x[length_in_bytes - 1 - j]
+        reversed_i = bit_rev(x=i, length_in_bits=LOG_SAMPLE_SIZE)
+        i_as_bits = bin(i)[2:].zfill(LOG_SAMPLE_SIZE)
+        reversed_i_as_bits = bin(reversed_i)[2:].zfill(LOG_SAMPLE_SIZE)
+        for j in range(len(i_as_bits)):
+            assert i_as_bits[j] == reversed_i_as_bits[LOG_SAMPLE_SIZE - 1 - j]
 
 
 IS_POW_TWO_CASES = [
@@ -127,31 +126,31 @@ BIT_REV_CP_CASES = [
 
 @pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
 def test_bit_rev_cp(x, expected_output):
-    assert _bit_rev_cp(x=x, num_bits=ceil(log2(len(x)))) == expected_output
+    assert _bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x)))) == expected_output
 
 
 def test_bit_rev_cp_failures():
     with pytest.raises(TypeError):
-        bit_rev_cp(x=3, num_bits=2)
+        bit_rev_cp(x=3, length_in_bits=2)
 
     with pytest.raises(TypeError):
-        bit_rev_cp(x=['hello world', 0.001], num_bits=2)
+        bit_rev_cp(x=['hello world', 0.001], length_in_bits=2)
 
     with pytest.raises(TypeError):
-        bit_rev_cp(x=['hello world', 0.001], num_bits=0.001)
+        bit_rev_cp(x=['hello world', 0.001], length_in_bits=0.001)
 
     with pytest.raises(ValueError):
-        bit_rev_cp(x=list(range(8)), num_bits=0)
+        bit_rev_cp(x=list(range(8)), length_in_bits=0)
 
     with pytest.raises(ValueError):
-        bit_rev_cp(x=list(range(8)), num_bits=2)
+        bit_rev_cp(x=list(range(8)), length_in_bits=2)
 
     with pytest.raises(ValueError):
-        bit_rev_cp(x=list(range(8)), num_bits=4)
+        bit_rev_cp(x=list(range(8)), length_in_bits=4)
 
 @pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
 def test_bit_rev_cp_full(x, expected_output):
-    assert bit_rev_cp(x=x, num_bits=ceil(log2(len(x)))) == expected_output
+    assert bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x)))) == expected_output
 
 
 REDUCE_CASES = [(_, _) if _ <= Q//2 else (_, _ - Q) for _ in list(range(Q))]
