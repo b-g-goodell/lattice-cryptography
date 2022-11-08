@@ -64,14 +64,6 @@ def test_bytes2int_and_int2bytes_are_inverses():
 
 
 def test_bit_rev():
-    for i in range(SAMPLE_SIZE):
-        x = int2bytes(x=i, length=LOG_SAMPLE_SIZE)
-        reversed_i = _bit_rev(x=i, length=LOG_SAMPLE_SIZE)
-        reversed_x = int2bytes(x=reversed_i, length=LOG_SAMPLE_SIZE)
-        assert len(x) == len(reversed_x) == LOG_SAMPLE_SIZE
-        for i in range(LOG_SAMPLE_SIZE):
-            assert x[i] == reversed_x[LOG_SAMPLE_SIZE - 1 - i]
-
     with pytest.raises(TypeError):
         bit_rev(x='hello world', length=LOG_SAMPLE_SIZE)
 
@@ -96,13 +88,14 @@ def test_bit_rev():
     with pytest.raises(ValueError):
         bit_rev(x=7, length=2)
 
+    length_in_bytes = max(1, ceil(LOG_SAMPLE_SIZE/8))
     for i in range(SAMPLE_SIZE):
-        x = int2bytes(x=i, length=LOG_SAMPLE_SIZE)
+        x = int2bytes(x=i, length=length_in_bytes)
         reversed_i = bit_rev(x=i, length=LOG_SAMPLE_SIZE)
-        reversed_x = int2bytes(x=reversed_i, length=LOG_SAMPLE_SIZE)
-        assert len(x) == len(reversed_x) == LOG_SAMPLE_SIZE
-        for i in range(LOG_SAMPLE_SIZE):
-            assert x[i] == reversed_x[LOG_SAMPLE_SIZE - 1 - i]
+        reversed_x = int2bytes(x=reversed_i, length=length_in_bytes)
+        assert len(x) == len(reversed_x) == length_in_bytes
+        for j in range(length_in_bytes):
+            assert x[j] == reversed_x[length_in_bytes - 1 - j]
 
 
 IS_POW_TWO_CASES = [

@@ -124,7 +124,8 @@ def bytes2int(x: bytes) -> int:
 
 
 def _bit_rev(x: int, length: int) -> int:
-    return bytes2int(x=int2bytes(x=x, length=length)[::-1])
+    length_in_bytes: int = max(1, ceil(length/8))
+    return bytes2int(x=int2bytes(x=x, length=length_in_bytes)[::-1])
 
 
 def bit_rev(x: int, length: int) -> int:
