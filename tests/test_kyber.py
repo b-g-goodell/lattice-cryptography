@@ -9,11 +9,6 @@ LOG_SAMPLE_SIZE: int = 10
 
 
 def test_int2bytes():
-    with pytest.raises(TypeError):
-        _int2bytes(x='hello world', length=17)
-    with pytest.raises(TypeError):
-        _int2bytes(x=0.001, length=17)
-
     assert _int2bytes(x=7, length=1) == bytes([7])
 
     with pytest.raises(TypeError):
@@ -51,8 +46,11 @@ def test_bytes2int():
 
 
 def test_bytes2int_and_int2bytes_are_inverses():
+    length: int = LOG_SAMPLE_SIZE // 8 + 1
     for i in range(SAMPLE_SIZE):
-        assert bytes2int(int2bytes(x=i, length=LOG_SAMPLE_SIZE)) == i
+        i2bytes = int2bytes(x=i, length=length)
+        i2bytes2i = bytes2int(x=i2bytes)
+        assert i2bytes2i == i
 
     for i in range(SAMPLE_SIZE):
         next_bytes_object = bytes(0)
