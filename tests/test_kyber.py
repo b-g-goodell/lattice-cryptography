@@ -403,22 +403,38 @@ def test_polyntt():
 
 
 def test_cbd_eta():
-    test_eta: int = 3
-    give_me_a_three: bytes = b'111000'
-    test_val: bytes = bytes(0)
-    for _ in range(N):
-        test_val += give_me_a_three
-    expected_result: int = [3 for _ in range(N)]
-    assert _cbd_eta(x=test_val, eta=test_eta) == expected_result
-    assert cbd_eta(x=test_val, eta=test_eta) == expected_result
+    test_eta: int = 1
+    give_me_a_one: str = '10' * N
+    give_me_a_one_as_bytes: bytes = bytes(int(give_me_a_one[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_one)//8))
+    expected_result: list[int] = [1] * N
+    assert _cbd_eta(x=give_me_a_one_as_bytes, eta=test_eta) == expected_result
+    assert cbd_eta(x=give_me_a_one_as_bytes, eta=test_eta) == expected_result
 
-    give_me_a_negative_three: bytes = b'000111'
-    test_val: bytes = bytes(0)
-    for _ in range(N):
-        test_val += give_me_a_negative_three
-    expected_result: int = [-3 for _ in range(N)]
-    assert _cbd_eta(x=test_val, eta=test_eta) == expected_result
-    assert cbd_eta(x=test_val, eta=test_eta) == expected_result
+    test_eta: int = 2
+    give_me_a_two: str = '1100' * N
+    give_me_a_two_as_bytes: bytes = bytes(int(give_me_a_two[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_two)//8))
+    expected_result: list[int] = [2] * N
+    assert _cbd_eta(x=give_me_a_two_as_bytes, eta=test_eta) == expected_result
+    assert cbd_eta(x=give_me_a_two_as_bytes, eta=test_eta) == expected_result
+
+    give_me_a_one: str = '1000' * N
+    give_me_a_one_as_bytes: bytes = bytes(int(give_me_a_one[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_one)//8))
+    expected_result: list[int] = [1] * N
+    assert _cbd_eta(x=give_me_a_one_as_bytes, eta=test_eta) == expected_result
+    assert cbd_eta(x=give_me_a_one_as_bytes, eta=test_eta) == expected_result
+
+    test_eta: int = 3
+    give_me_a_negative_two: str = '000011' * N
+    give_me_a_negative_two_as_bytes: bytes = bytes(int(give_me_a_negative_two[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_negative_two)//8))
+    for i, some_byte in enumerate(give_me_a_negative_two_as_bytes):
+        purported_bits = give_me_a_negative_two[i*8: (i+1)*8]
+        purported_int = int(purported_bits, 2)
+        z = some_byte
+        z_as_bits = bin(z)[2:]
+        w = z_as_bits.zfill(8*ceil(len(z_as_bits)/8))
+    expected_result: list[int] = [-2] * N
+    assert _cbd_eta(x=give_me_a_negative_two_as_bytes, eta=test_eta) == expected_result
+    assert cbd_eta(x=give_me_a_negative_two_as_bytes, eta=test_eta) == expected_result
 
 
 def test_cbd_polycoefs():

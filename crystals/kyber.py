@@ -673,11 +673,14 @@ class PolyNTT(object):
 
 
 def _cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
-    x_as_bits: list[int] = [int(y == '1') for y in x.decode()]
-    result: list[int] = [0 for _ in range(N)]
+    x_as_bits: str = ''
+    for next_bytes in x:
+        next_bytes_as_bits = bin(next_bytes)[2:]
+        x_as_bits += bin(next_bytes)[2:].zfill(8*ceil(len(next_bytes_as_bits)/8))
+    result: list[int] = [0] * N
     for i in range(N):
-        a: int = sum([x_as_bits[2*i*eta + j] for j in range(eta)])
-        b: int = sum([x_as_bits[2*i*eta + eta + j] for j in range(eta)])
+        a: int = sum([int('1' == x_as_bits[2*i*eta + j]) for j in range(eta)])
+        b: int = sum([int('1' == x_as_bits[2*i*eta + eta + j]) for j in range(eta)])
         result[i] = a - b
     return result
 
@@ -696,19 +699,16 @@ def cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
     :return: List of integers.
     :rtype: list[int]
     """
-    if isinstance(x, bytes) and len(x) >= 2*N*eta and isinstance(eta, int) and eta >= 1 and all(y == '0' or y == '1' for y in x.decode()):
+    if isinstance(x, bytes) and len(x) >= 2*N*eta//8 and isinstance(eta, int) and eta >= 1:
         return _cbd_eta(x=x, eta=eta)
     elif not isinstance(x, bytes):
         raise TypeError(f'Cannot cbd_eta with x, eta unless x is a bytes object, but type(x)={type(x)}.')
-    elif len(x) < 2*N*eta:
+    elif len(x) < 2*N*eta//8:
         raise ValueError(f'Cannot cbd_eta with x, eta unless len(x)>={2*N*eta//8} but had len(x)={len(x)}.')
     elif not isinstance(eta, int):
         raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(eta)={type(eta)}.')
     elif eta < 1:
         raise ValueError(f'Cannot cbd_eta with x, eta unless eta >= 1 but had eta={eta}.')
-    elif not all(y == '0' or y == '1' for y in x.decode()):
-        # TODO: Refactor to avoid strings and to use bytes with binary expansions instead.
-        raise ValueError(f'Cannot cbd_eta with a bytes object unless it decodes to a bitstring. The code can be modified to accept all bytes objects if this error comes up a lot. Please contact the developers.')
     raise TypeError(f'Cannot cbd_eta with x, eta unless eta is an integer, but had type(x)={type(x)}.')
 
 
