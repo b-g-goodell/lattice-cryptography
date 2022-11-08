@@ -153,12 +153,12 @@ def test_bit_rev_cp_full(x, expected_output):
     assert bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x)))) == expected_output
 
 
-REDUCE_CASES = [(_, _) if _ <= Q//2 else (_, _ - Q) for _ in list(range(Q))]
+REDUCE_CASES = [(_, Q, _) if _ <= Q//2 else (_, Q, _ - Q) for _ in list(range(Q))]
 
-@pytest.mark.parametrize("x, expected_output", REDUCE_CASES)
-def test_reduce(x, expected_output):
-    assert _reduce(x=x) == expected_output
-    assert reduce(x=x) == expected_output
+@pytest.mark.parametrize("x, q, expected_output", REDUCE_CASES)
+def test_reduce(x, q, expected_output):
+    assert _reduce(x=x, q=q) == expected_output
+    assert reduce(x=x, q=q) == expected_output
 
 
 def test_reduce_fail():
@@ -255,8 +255,9 @@ def test_parse():
 
 
 def test_is_arithmetic_legal():
-    assert is_arithmetic_legal(a_vals = [[[]]], b_vals=[[[]]])
-    assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[]]])
+    assert is_arithmetic_legal(a_vals = [[[]]], b_vals=[[[]]], q_a=17, q_b=17)
+    assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[]]], q_a=17, q_b=17)
+    assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[1]]], q_a=17, q_b=19)
 
 
 def test_add():
