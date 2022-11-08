@@ -65,8 +65,10 @@ def _int2bytes(x: int, length: int) -> bytes:
     x_as_bin: str = bin(x)[2:].zfill(8*length)
     for i in range(length):
         next_int: int = 0
-        for next_bit in x_as_bin[8*i:8*(i+1)][::-1]:
-            next_int += 2**int(next_bit == '1')
+        exponent: int = 0
+        for next_bit in x_as_bin[8*i: 8*(i+1)][::-1]:
+            next_int += int(next_bit == '1') * 2**exponent
+            exponent += 1
         result += [next_int]
     return bytes(result)
 
@@ -102,7 +104,7 @@ def _bytes2int(x: bytes) -> int:
     result: int = 0
     for y in x:
         result += y * exponent
-        exponent *= 2
+        exponent *= 256
     return y
 
 

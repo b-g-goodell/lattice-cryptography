@@ -14,7 +14,7 @@ def test_int2bytes():
     with pytest.raises(TypeError):
         _int2bytes(x=0.001, length=17)
 
-    assert _int2bytes(x=7, length=17) == b'00000000000000111'
+    assert _int2bytes(x=7, length=1) == bytes([7])
 
     with pytest.raises(TypeError):
         int2bytes(x='hello world', length=17)
@@ -23,11 +23,13 @@ def test_int2bytes():
     with pytest.raises(TypeError):
         int2bytes(x=7, length=0.001)
     with pytest.raises(ValueError):
-        int2bytes(x=7, length=2)
+        int2bytes(x=-1, length=17)
+    with pytest.raises(ValueError):
+        int2bytes(x=7, length=0)
 
-    assert int2bytes(x=7, length=3) == b'111'
-    assert int2bytes(x=7, length=4) == b'0111'
-    assert int2bytes(x=7, length=17) == b'00000000000000111'
+    assert int2bytes(x=7, length=3) == bytes([0, 0, 7])
+    assert int2bytes(x=7, length=4) == bytes([0, 0, 0, 7])
+    assert int2bytes(x=7, length=17) == bytes([0] * 16 + [7])
 
 
 def test_bytes2int():
