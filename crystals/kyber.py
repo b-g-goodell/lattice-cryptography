@@ -714,12 +714,12 @@ def cbd_eta(x: bytes, eta: int = ETA) -> list[int]:
 
 def _cbd_polycoefs(x: bytes, eta: int = ETA, num_rows: int = K, num_cols: int = 1) -> PolyCoefs:
     vals: list[list[list[int]]] = []
-    decoded_x: str = x.decode()
     for i in range(num_rows):
-        next_x: str = decoded_x[i*num_cols*2*N*eta: (i+1)*num_cols*2*N*eta].encode()
+        next_x: bytes = x[i*num_cols*(2*N*eta//8): (i+1)*num_cols*(2*N*eta)//8]
         vals += [[]]
         for j in range(num_cols):
-            vals[-1] += [cbd_eta(x=next_x[j * (2 * N * eta): (j + 1) * (2 * N * eta)], eta=eta)]
+            next_bytes: bytes = bytes(next_x[j * (2 * N * eta)//8: (j + 1) * (2 * N * eta)//8])
+            vals[-1] += [cbd_eta(x=next_bytes, eta=eta)]
     return PolyCoefs(vals=vals, k1=num_rows, k2=num_cols)
 
 

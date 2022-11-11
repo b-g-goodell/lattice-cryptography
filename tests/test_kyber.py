@@ -426,55 +426,52 @@ def test_cbd_eta():
     test_eta: int = 3
     give_me_a_negative_two: str = '000011' * N
     give_me_a_negative_two_as_bytes: bytes = bytes(int(give_me_a_negative_two[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_negative_two)//8))
-    for i, some_byte in enumerate(give_me_a_negative_two_as_bytes):
-        purported_bits = give_me_a_negative_two[i*8: (i+1)*8]
-        purported_int = int(purported_bits, 2)
-        z = some_byte
-        z_as_bits = bin(z)[2:]
-        w = z_as_bits.zfill(8*ceil(len(z_as_bits)/8))
     expected_result: list[int] = [-2] * N
     assert _cbd_eta(x=give_me_a_negative_two_as_bytes, eta=test_eta) == expected_result
     assert cbd_eta(x=give_me_a_negative_two_as_bytes, eta=test_eta) == expected_result
 
 
 def test_cbd_polycoefs():
-    test_eta: int = 3
     test_num_rows: int = 2
     test_num_cols: int = 3
-    give_me_a_three: bytes = b'111000'
-    test_val: bytes = bytes(0)
-    for _ in range(test_num_rows*test_num_cols*2*N*test_eta):
-        test_val += give_me_a_three
+    test_eta: int = 3
+    give_me_a_negative_two: str = ''
+    for _ in range(N*test_num_cols*test_num_rows):
+        give_me_a_negative_two += '000011'
+    length_of_give_me_a_negative_two = len(give_me_a_negative_two)
+    give_me_a_negative_two_as_ints: list[int] = [int(give_me_a_negative_two[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_negative_two)//8)]
+    give_me_a_negative_two_as_bytes: bytes = bytes(give_me_a_negative_two_as_ints)
+    expected_result: list[int] = [-2] * N
 
-    result = _cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+    result: PolyCoefs = _cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
     assert isinstance(result, PolyCoefs)
     assert result.k1 == test_num_rows
     assert result.k2 == test_num_cols
-    assert all(z == 3 for x in result.vals for y in x for z in y)
+    assert all(z == -2 for x in result.vals for y in x for z in y)
 
-    result: PolyCoefs = cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+    result: PolyCoefs = cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
     assert isinstance(result, PolyCoefs)
 
     with pytest.raises(TypeError):
         cbd_polycoefs(x='hello world', eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
 
     with pytest.raises(ValueError):
-        cbd_polycoefs(x=give_me_a_three, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes[:-1], eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
 
     with pytest.raises(TypeError):
-        cbd_polycoefs(x=test_val, eta='hello world', num_rows=test_num_rows, num_cols=test_num_cols)
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta='hello world', num_rows=test_num_rows, num_cols=test_num_cols)
 
     with pytest.raises(TypeError):
-        cbd_polycoefs(x=test_val, eta=test_eta, num_rows='test_num_rows', num_cols=test_num_cols)
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows='test_num_rows', num_cols=test_num_cols)
 
     with pytest.raises(ValueError):
-        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=0, num_cols=test_num_cols)
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=0, num_cols=test_num_cols)
 
     with pytest.raises(TypeError):
-        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols='test_num_cols')
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=test_num_rows, num_cols='test_num_cols')
 
     with pytest.raises(ValueError):
-        cbd_polycoefs(x=test_val, eta=test_eta, num_rows=test_num_rows, num_cols=0)
+        cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=test_num_rows, num_cols=0)
 
 
 COMPRESS_ONE_INT_CASES = [
