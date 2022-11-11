@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many, compress
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -531,7 +531,6 @@ def test_should_compress_many():
     p: int = 17
     assert not _should_compress_many(x=x, d=d, p=p)
 
-
     d: int = 0
     assert not _should_compress_many(x=x, d=d, p=p)
 
@@ -546,8 +545,99 @@ def test_should_compress_many():
     assert not _should_compress_many(x=x, d=d, p=p)
 
 
-def test_compress():
-    pass
+COMPRESS_CASES = [
+    (0, 1, 17, 0),
+    (1, 1, 17, 0),
+    (2, 1, 17, 0),
+    (3, 1, 17, 0),
+    (4, 1, 17, 0),
+    (5, 1, 17, 1),
+    (6, 1, 17, 1),
+    (7, 1, 17, 1),
+    (8, 1, 17, 1),
+    (9, 1, 17, 1),
+    (10, 1, 17, 1),
+    (11, 1, 17, 1),
+    (12, 1, 17, 1),
+    (13, 1, 17, 0),
+    (14, 1, 17, 0),
+    (15, 1, 17, 0),
+    (16, 1, 17, 0),
+    ([0], 1, 17, [0]),
+    ([1], 1, 17, [0]),
+    ([2], 1, 17, [0]),
+    ([3], 1, 17, [0]),
+    ([4], 1, 17, [0]),
+    ([5], 1, 17, [1]),
+    ([6], 1, 17, [1]),
+    ([7], 1, 17, [1]),
+    ([8], 1, 17, [1]),
+    ([9], 1, 17, [1]),
+    ([10], 1, 17, [1]),
+    ([11], 1, 17, [1]),
+    ([12], 1, 17, [1]),
+    ([13], 1, 17, [0]),
+    ([14], 1, 17, [0]),
+    ([15], 1, 17, [0]),
+    ([16], 1, 17, [0]),
+    ([0, 5], 1, 17, [0, 1]),
+    ([1, 6], 1, 17, [0, 1]),
+    ([2, 7], 1, 17, [0, 1]),
+    ([3, 8], 1, 17, [0, 1]),
+    ([4, 9], 1, 17, [0, 1]),
+    ([5, 10], 1, 17, [1, 1]),
+    ([6, 11], 1, 17, [1, 1]),
+    ([7, 12], 1, 17, [1, 1]),
+    ([8, 13], 1, 17, [1, 0]),
+    ([9, 14], 1, 17, [1, 0]),
+    ([10, 15], 1, 17, [1, 0]),
+    ([11, 16], 1, 17, [1, 0]),
+    ([12, 0], 1, 17, [1, 0]),
+    ([13, 1], 1, 17, [0, 0]),
+    ([14, 2], 1, 17, [0, 0]),
+    ([15, 3], 1, 17, [0, 0]),
+    ([16, 4], 1, 17, [0, 0]),
+    ([[[0]]], 1, 17, [[[0]]]),
+    ([[[1]]], 1, 17, [[[0]]]),
+    ([[[2]]], 1, 17, [[[0]]]),
+    ([[[3]]], 1, 17, [[[0]]]),
+    ([[[4]]], 1, 17, [[[0]]]),
+    ([[[5]]], 1, 17, [[[1]]]),
+    ([[[6]]], 1, 17, [[[1]]]),
+    ([[[7]]], 1, 17, [[[1]]]),
+    ([[[8]]], 1, 17, [[[1]]]),
+    ([[[9]]], 1, 17, [[[1]]]),
+    ([[[10]]], 1, 17, [[[1]]]),
+    ([[[11]]], 1, 17, [[[1]]]),
+    ([[[12]]], 1, 17, [[[1]]]),
+    ([[[13]]], 1, 17, [[[0]]]),
+    ([[[14]]], 1, 17, [[[0]]]),
+    ([[[15]]], 1, 17, [[[0]]]),
+    ([[[16]]], 1, 17, [[[0]]]),
+    ([[[0, 5]]], 1, 17, [[[0, 1]]]),
+    ([[[1, 6]]], 1, 17, [[[0, 1]]]),
+    ([[[2, 7]]], 1, 17, [[[0, 1]]]),
+    ([[[3, 8]]], 1, 17, [[[0, 1]]]),
+    ([[[4, 9]]], 1, 17, [[[0, 1]]]),
+    ([[[5, 10]]], 1, 17, [[[1, 1]]]),
+    ([[[6, 11]]], 1, 17, [[[1, 1]]]),
+    ([[[7, 12]]], 1, 17, [[[1, 1]]]),
+    ([[[8, 13]]], 1, 17, [[[1, 0]]]),
+    ([[[9, 14]]], 1, 17, [[[1, 0]]]),
+    ([[[10, 15]]], 1, 17, [[[1, 0]]]),
+    ([[[11, 16]]], 1, 17, [[[1, 0]]]),
+    ([[[12, 0]]], 1, 17, [[[1, 0]]]),
+    ([[[13, 1]]], 1, 17, [[[0, 0]]]),
+    ([[[14, 2]]], 1, 17, [[[0, 0]]]),
+    ([[[15, 3]]], 1, 17, [[[0, 0]]]),
+    ([[[16, 4]]], 1, 17, [[[0, 0]]]),
+]
+
+
+@pytest.mark.parametrize("x,d,p,expected_result", COMPRESS_CASES)
+def test_compress(x, d, p, expected_result):
+    assert compress(x=x, d=d, p=p) == expected_result
+
 
 DECOMPRESS_ONE_INT_CASES = [
     (0, 1, 17, 0),
