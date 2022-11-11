@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many, compress
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many, compress, decompress
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -662,8 +662,19 @@ def test_decompress_polycoefs():
     pass
 
 
-def test_decompress():
-    pass
+DECOMPRESS_CASES = [
+    (0, 1, 17, 0),
+    (1, 1, 17, 9),
+    ([0], 1, 17, [0]),
+    ([1], 1, 17, [9]),
+    ([[[0]]], 1, 17, [[[0]]]),
+    ([[[1]]], 1, 17, [[[9]]]),
+]
+
+
+@pytest.mark.parametrize("x,d,p,expected_result", DECOMPRESS_CASES)
+def test_decompress(x, d, p, expected_result):
+    decompress(x=x, d=d, p=p) == expected_result
 
 
 ENCODE_M_ONE_INT_CASES = [

@@ -24,7 +24,6 @@ Brandon Goodell (lead author), Mitchell Krawiec-Thayer.
 """
 from math import ceil, floor, log2
 from copy import deepcopy
-from secrets import randbits
 
 # Parameters from Kyber1024
 N: int = 256
