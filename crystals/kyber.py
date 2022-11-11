@@ -854,268 +854,263 @@ def _encode_m_one_int(x: int, m: int) -> bytes:
     return int2bytes(x=x, length=m)
 
 
-# def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
-#     result = bytes(0)
-#     for y in x:
-#         result += _encode_m_one_int(x=y, m=m)
-#     return result
-#
-#
-# def _encode_m_many_ints(x: list[list[list[int]]], m: int) -> bytes:
-#     result = bytes(0)
-#     for y in x:
-#         for z in y:
-#             result += _encode_m_list_of_ints(x=z, m=m)
-#     return result
-#
-#
-# def _encode_m_matrix(x: PolyCoefs | PolyNTT, m: int) -> bytes:
-#     return _encode_m_many_ints(x=x.vals, m=m)
-#
-#
-# def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, m: int) -> bytes:
-#     """
-#     We rename encode_l to encode_m to use m instead of l because l is an ambiguous character. Encodes an integer (or a
-#     list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to bytes. Works
-#     with the usual serialization... each piece of input data is an integer modulo p, and we just pad out the binary
-#     expansion of the input data to m bytes.
-#
-#     :param x: Input data
-#     :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
-#     :param m: Number of bytes
-#     :type m: int
-#
-#     :return: Encoded data
-#     :rtype: bytes
-#     """
-#     if isinstance(m, int) and m >= 1 and isinstance(x, int) and 0 <= x < 2 ** m:
-#         return _encode_m_one_int(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
-#         return _encode_m_list_of_ints(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2**m for y in x for z in y for w in z):
-#         return _encode_m_many_ints(x=x, m=m)
-#     elif isinstance(m, int) and m >= 1 and (isinstance(x, PolyCoefs) or isinstance(x, PolyNTT)):
-#         return _encode_m_matrix(x=x, m=m)
-#     raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an m-bit integer, or a list of m-bit integers, or x is a list of lists of lists of m-bit integers, or x is a PolyCoefs, but had (type(x), m)={(type(x), m)}.')
+def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
+    result = bytes(0)
+    for y in x:
+        result += _encode_m_one_int(x=y, m=m)
+    return result
 
 
-# def _decode_m_one_int(x: bytes) -> int:
-#     # TODO: WRONG
-#     # light wrapper for bytes2int
-#     return bytes2int(x=x)
-#
-#
-# def _decode_m_list_of_ints(x: bytes, m: int) -> list[int]:
-#     # TODO: WRONG
-#     return [_decode_m_one_int(x=x[i * m: (i + 1) * m]) for i in range(len(x) // m)]
-#
-#
-# def _decode_m_many(x: bytes, m: int) -> list[list[list[int]]]:
-#     # TODO: WRONG
-#     result: list[list[list[int]]] = []
-#     y: list[bytes] = [x[i*N*m: (i+1)*N*m] for i in range(K)]
-#     for next_row in y:
-#         next_poly: list[int] = _decode_m_list_of_ints(x=next_row, m=m)
-#         result += [[next_poly]]
-#     return result
-#
-#
-# def _decode_m_matrix(x: bytes, m: int, ntt_matrix_flag: bool) -> PolyCoefs | PolyNTT:
-#     # TODO: WRONG
-#     if ntt_matrix_flag:
-#         return PolyNTT(vals=_decode_m_many(x=x, m=m))
-#     return PolyCoefs(vals=_decode_m_many(x=x, m=m))
-#
-#
-# def decode_m(x: bytes, m: int, coef_matrix_flag: bool = False, ntt_matrix_flag: bool = False) -> list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT:
-#     """
-#     TODO: WRONG
-#     We rename decode_l to decode_m to use m instead of l because l is an ambiguous character. Decodes a bytes object to
-#     an integer (or a list of integers, or a list of lists of lists of integers) or a PolyCoefs or PolyNTT object. Works
-#     with the usual serialization... interpret each chunk of m bytes as determined by the binary expansion of an integer,
-#     written as bytes.
-#
-#     :param x: Input data
-#     :type x: bytes
-#     :param m: Number of bytes per integer
-#     :type m: int
-#     :param coef_matrix_flag: Flag indicating whether input x should be decoded to a PolyCoefs object.
-#     :type coef_matrix_flag: bool
-#     :param ntt_matrix_flag: Flag indicating whether input x should be decoded to a PolyNTT object.
-#     :type ntt_matrix_flag: bool
-#
-#     :return: Encoded data
-#     :rtype: bytes
-#     """
-#     if isinstance(x, bytes) and len(x) == N*m:
-#         return _decode_m_list_of_ints(x=x, m=m)
-#     elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and not coef_matrix_flag and not ntt_matrix_flag:
-#         return _decode_m_many(x=x, m=m)
-#     elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and (coef_matrix_flag ^ ntt_matrix_flag):
-#         return _decode_m_matrix(x=x, m=m, ntt_matrix_flag=ntt_matrix_flag)
-#     raise ValueError(f'Cannot compute decode_m for (x, m, coef_matrix_flag, ntt_matrix_flag) unless (i) x is a bytes object of length {N*m} or (ii) x is a bytes object with length at least {K*N*m} and both coef_matrix_flag and ntt_matrix_flag are booleans with at most one of them True, but had (type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)={(type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)}.')
-#
-#
-# def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
-#     bit_rev_x: list[int] = bit_rev_cp(x=x, num_bits=ceil(log2(len(x))))
-#     m: int = 1
-#     for s in range(1, LOG_TWICE_DEGREE + 1):
-#         m *= 2
-#         if inv_flag:
-#             this_zeta: int = ZETA_INVERSES[s - 1]
-#         else:
-#             this_zeta: int = ZETAS[s - 1]
-#         for k in range(0, TWICE_DEGREE, m):
-#             w: int = 1
-#             for j in range(m // 2):
-#                 t: int = w * bit_rev_x[k + j + m // 2]
-#                 u: int = bit_rev_x[k + j]
-#                 if const_time:
-#                     bit_rev_x[k + j]: int = reduce(x=u + t)
-#                     bit_rev_x[k + j + m // 2]: int = reduce(x=u - t)
-#                 else:
-#                     bit_rev_x[k + j]: int = (u + t) % Q
-#                     if bit_rev_x[k + j] > HALF_Q:
-#                         bit_rev_x[k + j] = bit_rev_x[k + j] - Q
-#                     bit_rev_x[k + j + m // 2]: int = (u - t) % Q
-#                     if bit_rev_x[k + j + m // 2] > HALF_Q:
-#                         bit_rev_x[k + j + m // 2] = bit_rev_x[k + j + m // 2] - Q
-#                 w *= this_zeta
-#     if inv_flag:
-#         n_inv: int = 1
-#         while (n_inv * TWICE_DEGREE) % Q != 1:
-#             n_inv += 1
-#         if const_time:
-#             bit_rev_x: list[int] = [reduce(x=(n_inv * i)) for i in bit_rev_x]
-#         else:
-#             bit_rev_x: list[int] = [(n_inv * i) % Q for i in bit_rev_x]
-#             bit_rev_x = [i if i <= HALF_Q else i - Q for i in bit_rev_x]
-#     return bit_rev_x
-#
-#
-# def _ntt_many(x: list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[list[list[int]]]:
-#     return [[_ntt_one(x=z, inv_flag=inv_flag, const_time=const_time) for z in y] for y in x]
-#
-#
-# def _ntt_raw(x: list[int] | list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[int] | list[list[list[int]]]:
-#     if isinstance(x, list) and is_pow_two(len(x)) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(isinstance(y, int) for y in x):
-#         return _ntt_one(x=x, inv_flag=inv_flag, const_time=const_time)
-#     elif isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(is_pow_two(len(z)) for y in x for z in y):
-#         return _ntt_many(x=x, inv_flag=inv_flag, const_time=const_time)
-#     raise ValueError(f'Cannot compute _ntt_raw for x, inv_flag, const_time unless x is a list of integers with power-of-two length or a list of lists of lists of integers (with the most internal of these lists having lengths that are powers-of-two), inv_flag and const_time are both bool, and x has power-of-two-length, but had (type(x), inv_flag, const_time)={(type(x), inv_flag, const_time)}.')
-#
-#
-# def ntt(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
-#     """
-#     Performs the NTT and the inverse NTT, depending on input. If a PolyCoefs object is input, then the NTT of the input
-#     data is output. If a PolyNTT object is input, then the inverse NTT of the input data is output.
-#
-#     See []
-#     :params x: Input polynomial matrix representation.
-#     :type x: PolyCoefs | PolyNTT
-#
-#     :return: Transformed data
-#     :rtype: PolyCoefs | PolyNTT
-#     """
-#     if isinstance(x, PolyCoefs):
-#         return PolyNTT(vals=_ntt_raw(x.vals, inv_flag=False, const_time=True), modulus=x.modulus, degree=x.degree)
-#     elif isinstance(x, PolyNTT):
-#         return PolyCoefs(vals=_ntt_raw(x.vals, inv_flag=True, const_time=True), modulus=x.modulus, degree=x.degree)
-#     raise ValueError(f'Cannot compute NTT (or inverse NTT) for x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={x}.')
-#
-#
-# def transpose(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
-#     """
-#     Transposes the input data.
-#
-#     :params x: Input polynomial matrix representation.
-#     :type x: PolyCoefs | PolyNTT
-#
-#     :return: Transposed data
-#     :rtype: PolyCoefs | PolyNTT
-#     """
-#     if isinstance(x, PolyCoefs) or isinstance(x, PolyNTT):
-#         result = deepcopy(x)
-#         result.vals = [[x.vals[j][i] for j in range(len(x.vals))] for i in range(len(x.vals))]
-#         return result
-#     raise ValueError(f'Cannot transpose with x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={type(x)}.')
-#
-#
-# def xof(x: bytes) -> bytes:
-#     """
-#     Pass input to whatever XOF your implementation requires.
-#
-#     :params x: Input data
-#     :type x: bytes
-#
-#     :return: XOF of input data
-#     :type x: bytes
-#     """
-#     if isinstance(x, bytes):
-#         return bytes(0)
-#     raise ValueError(f'Cannot compute XOF with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
-# def prf(x: bytes) -> bytes:
-#     """
-#     Pass input to whatever PRF your implementation requires.
-#
-#     :params x: Input data
-#     :type x: bytes
-#
-#     :return: PRF of input data
-#     :type x: bytes
-#     """
-#     if isinstance(x, bytes):
-#         return bytes(0)
-#     raise ValueError(f'Cannot compute PRF with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
-# def kdf(x: bytes) -> bytes:
-#     """
-#     Pass input to whatever KDF your implementation requires.
-#
-#     :params x: Input data
-#     :type x: bytes
-#
-#     :return: KDF of input data
-#     :type x: bytes
-#     """
-#     if isinstance(x, bytes):
-#         return bytes(0)
-#     raise ValueError(f'Cannot compute KDF with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
-# def hash_h(x: bytes) -> bytes:
-#     """
-#     Pass input to whatever hash function H your implementation requires.
-#
-#     :params x: Input data
-#     :type x: bytes
-#
-#     :return: HashFunctionH of input data
-#     :type x: bytes
-#     """
-#     if isinstance(x, bytes):
-#         return bytes(0)
-#     raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
-# def hash_g(x: bytes) -> bytes:
-#     """
-#     Pass input to whatever hash function G your implementation requires.
-#
-#     :params x: Input data
-#     :type x: bytes
-#
-#     :return: HashFunctionG of input data
-#     :type x: bytes
-#     """
-#     if isinstance(x, bytes):
-#         return bytes(0)
-#     raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
-#
-#
+def _encode_m_many_ints(x: list[list[list[int]]], m: int) -> bytes:
+    result = bytes(0)
+    for y in x:
+        for z in y:
+            result += _encode_m_list_of_ints(x=z, m=m)
+    return result
+
+
+def _encode_m_matrix(x: PolyCoefs | PolyNTT, m: int) -> bytes:
+    return _encode_m_many_ints(x=x.vals, m=m)
+
+
+def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, m: int) -> bytes:
+    """
+    We rename encode_l to encode_m to use m instead of l because l is an ambiguous character. Encodes an integer (or a
+    list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to bytes. Works
+    with the usual serialization... each piece of input data is an integer modulo p, and we just pad out the binary
+    expansion of the input data to m bytes.
+
+    :param x: Input data
+    :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
+    :param m: Number of bytes
+    :type m: int
+
+    :return: Encoded data
+    :rtype: bytes
+    """
+    if isinstance(m, int) and m >= 1 and isinstance(x, int) and 0 <= x < 2 ** m:
+        return _encode_m_one_int(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
+        return _encode_m_list_of_ints(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2**m for y in x for z in y for w in z):
+        return _encode_m_many_ints(x=x, m=m)
+    elif isinstance(m, int) and m >= 1 and (isinstance(x, PolyCoefs) or isinstance(x, PolyNTT)):
+        return _encode_m_matrix(x=x, m=m)
+    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an m-bit integer, or a list of m-bit integers, or x is a list of lists of lists of m-bit integers, or x is a PolyCoefs, but had (type(x), m)={(type(x), m)}.')
+
+
+def _decode_m_one_int(x: bytes) -> int:
+    # light wrapper for bytes2int
+    return bytes2int(x=x)
+
+
+def _decode_m_list_of_ints(x: bytes, m: int) -> list[int]:
+    return [_decode_m_one_int(x=x[i * m: (i + 1) * m]) for i in range(len(x) // m)]
+
+
+def _decode_m_many(x: bytes, m: int) -> list[list[list[int]]]:
+    result: list[list[list[int]]] = []
+    y: list[bytes] = [x[i*N*m: (i+1)*N*m] for i in range(K)]
+    for next_row in y:
+        next_poly: list[int] = _decode_m_list_of_ints(x=next_row, m=m)
+        result += [[next_poly]]
+    return result
+
+
+def _decode_m_matrix(x: bytes, m: int, ntt_matrix_flag: bool) -> PolyCoefs | PolyNTT:
+    if ntt_matrix_flag:
+        return PolyNTT(vals=_decode_m_many(x=x, m=m))
+    return PolyCoefs(vals=_decode_m_many(x=x, m=m))
+
+
+def decode_m(x: bytes, m: int, coef_matrix_flag: bool = False, ntt_matrix_flag: bool = False) -> list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT:
+    """
+    We rename decode_l to decode_m to use m instead of l because l is an ambiguous character. Decodes a bytes object to
+    an integer (or a list of integers, or a list of lists of lists of integers) or a PolyCoefs or PolyNTT object. Works
+    with the usual serialization... interpret each chunk of m bytes as determined by the binary expansion of an integer,
+    written as bytes.
+
+    :param x: Input data
+    :type x: bytes
+    :param m: Number of bytes per integer
+    :type m: int
+    :param coef_matrix_flag: Flag indicating whether input x should be decoded to a PolyCoefs object.
+    :type coef_matrix_flag: bool
+    :param ntt_matrix_flag: Flag indicating whether input x should be decoded to a PolyNTT object.
+    :type ntt_matrix_flag: bool
+
+    :return: Encoded data
+    :rtype: bytes
+    """
+    if isinstance(x, bytes) and len(x) == N*m:
+        return _decode_m_list_of_ints(x=x, m=m)
+    elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and not coef_matrix_flag and not ntt_matrix_flag:
+        return _decode_m_many(x=x, m=m)
+    elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and (coef_matrix_flag ^ ntt_matrix_flag):
+        return _decode_m_matrix(x=x, m=m, ntt_matrix_flag=ntt_matrix_flag)
+    raise ValueError(f'Cannot compute decode_m for (x, m, coef_matrix_flag, ntt_matrix_flag) unless (i) x is a bytes object of length {N*m} or (ii) x is a bytes object with length at least {K*N*m} and both coef_matrix_flag and ntt_matrix_flag are booleans with at most one of them True, but had (type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)={(type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)}.')
+
+
+def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
+    bit_rev_x: list[int] = bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x))))
+    m: int = 1
+    for s in range(1, LOG_TWICE_N + 1):
+        m *= 2
+        if inv_flag:
+            this_zeta: int = ZETA_INVERSES[s - 1]
+        else:
+            this_zeta: int = ZETAS[s - 1]
+        for k in range(0, TWICE_N, m):
+            w: int = 1
+            for j in range(m // 2):
+                t: int = w * bit_rev_x[k + j + m // 2]
+                u: int = bit_rev_x[k + j]
+                if const_time:
+                    bit_rev_x[k + j]: int = reduce(x=u + t)
+                    bit_rev_x[k + j + m // 2]: int = reduce(x=u - t)
+                else:
+                    bit_rev_x[k + j]: int = (u + t) % Q
+                    if bit_rev_x[k + j] > HALF_Q:
+                        bit_rev_x[k + j] = bit_rev_x[k + j] - Q
+                    bit_rev_x[k + j + m // 2]: int = (u - t) % Q
+                    if bit_rev_x[k + j + m // 2] > HALF_Q:
+                        bit_rev_x[k + j + m // 2] = bit_rev_x[k + j + m // 2] - Q
+                w *= this_zeta
+    if inv_flag:
+        n_inv: int = 1
+        while (n_inv * TWICE_N) % Q != 1:
+            n_inv += 1
+        if const_time:
+            bit_rev_x: list[int] = [reduce(x=(n_inv * i)) for i in bit_rev_x]
+        else:
+            bit_rev_x: list[int] = [(n_inv * i) % Q for i in bit_rev_x]
+            bit_rev_x = [i if i <= HALF_Q else i - Q for i in bit_rev_x]
+    return bit_rev_x
+
+
+def _ntt_many(x: list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[list[list[int]]]:
+    return [[_ntt_one(x=z, inv_flag=inv_flag, const_time=const_time) for z in y] for y in x]
+
+
+def _ntt_raw(x: list[int] | list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[int] | list[list[list[int]]]:
+    if isinstance(x, list) and is_pow_two(len(x)) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(isinstance(y, int) for y in x):
+        return _ntt_one(x=x, inv_flag=inv_flag, const_time=const_time)
+    elif isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(is_pow_two(len(z)) for y in x for z in y):
+        return _ntt_many(x=x, inv_flag=inv_flag, const_time=const_time)
+    raise ValueError(f'Cannot compute _ntt_raw for x, inv_flag, const_time unless x is a list of integers with power-of-two length or a list of lists of lists of integers (with the most internal of these lists having lengths that are powers-of-two), inv_flag and const_time are both bool, and x has power-of-two-length, but had (type(x), inv_flag, const_time)={(type(x), inv_flag, const_time)}.')
+
+
+def ntt(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
+    """
+    Performs the NTT and the inverse NTT, depending on input. If a PolyCoefs object is input, then the NTT of the input
+    data is output. If a PolyNTT object is input, then the inverse NTT of the input data is output.
+
+    See []
+    :params x: Input polynomial matrix representation.
+    :type x: PolyCoefs | PolyNTT
+
+    :return: Transformed data
+    :rtype: PolyCoefs | PolyNTT
+    """
+    if isinstance(x, PolyCoefs):
+        return PolyNTT(vals=_ntt_raw(x.vals, inv_flag=False, const_time=True), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
+    elif isinstance(x, PolyNTT):
+        return PolyCoefs(vals=_ntt_raw(x.vals, inv_flag=True, const_time=True), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
+    raise ValueError(f'Cannot compute NTT (or inverse NTT) for x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={x}.')
+
+
+def transpose(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
+    """
+    Transposes the input data.
+
+    :params x: Input polynomial matrix representation.
+    :type x: PolyCoefs | PolyNTT
+
+    :return: Transposed data
+    :rtype: PolyCoefs | PolyNTT
+    """
+    if isinstance(x, PolyCoefs) or isinstance(x, PolyNTT):
+        result = deepcopy(x)
+        result.vals = [[x.vals[j][i] for j in range(len(x.vals))] for i in range(len(x.vals))]
+        return result
+    raise ValueError(f'Cannot transpose with x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={type(x)}.')
+
+
+def xof(x: bytes) -> bytes:
+    """
+    Pass input to whatever XOF your implementation requires.
+
+    :params x: Input data
+    :type x: bytes
+
+    :return: XOF of input data
+    :type x: bytes
+    """
+    if isinstance(x, bytes):
+        return bytes(0)
+    raise ValueError(f'Cannot compute XOF with x unless x is bytes, but had type(x)={type(x)}.')
+
+
+def prf(x: bytes) -> bytes:
+    """
+    Pass input to whatever PRF your implementation requires.
+
+    :params x: Input data
+    :type x: bytes
+
+    :return: PRF of input data
+    :type x: bytes
+    """
+    if isinstance(x, bytes):
+        return bytes(0)
+    raise ValueError(f'Cannot compute PRF with x unless x is bytes, but had type(x)={type(x)}.')
+
+
+def kdf(x: bytes) -> bytes:
+    """
+    Pass input to whatever KDF your implementation requires.
+
+    :params x: Input data
+    :type x: bytes
+
+    :return: KDF of input data
+    :type x: bytes
+    """
+    if isinstance(x, bytes):
+        return bytes(0)
+    raise ValueError(f'Cannot compute KDF with x unless x is bytes, but had type(x)={type(x)}.')
+
+
+def hash_h(x: bytes) -> bytes:
+    """
+    Pass input to whatever hash function H your implementation requires.
+
+    :params x: Input data
+    :type x: bytes
+
+    :return: HashFunctionH of input data
+    :type x: bytes
+    """
+    if isinstance(x, bytes):
+        return bytes(0)
+    raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
+
+
+def hash_g(x: bytes) -> bytes:
+    """
+    Pass input to whatever hash function G your implementation requires.
+
+    :params x: Input data
+    :type x: bytes
+
+    :return: HashFunctionG of input data
+    :type x: bytes
+    """
+    if isinstance(x, bytes):
+        return bytes(0)
+    raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
+
+
 # def cpa_pke_keygen() -> bytes:
 #     """
 #     Key generation for the Kyber CPA PKE scheme.

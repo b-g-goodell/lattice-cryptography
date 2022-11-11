@@ -687,82 +687,82 @@ def test_encode_m_one_int(x, m, expected_result):
     assert _encode_m_one_int(x=x, m=m) == expected_result
 
 
-# def test_encode_m_list_of_ints():
-#     pass
-#
-#
-# def test_encode_m_many_ints():
-#     pass
-#
-#
-# def test_encode_m_matrix():
-#     pass
-#
-#
-# def test_encode_m():
-#     pass
-#
-#
-# def test_decode_m_one_int():
-#     pass
-#
-#
-# def test_decode_m_list_of_ints():
-#     pass
-#
-#
-# def test_decode_m_many():
-#     pass
-#
-#
-# def test_decode_m_matrix():
-#     pass
-#
-#
-# def test_decode_m():
-#     pass
-#
-#
-# def test_ntt_one():
-#     pass
-#
-#
-# def test_ntt_many():
-#     pass
-#
-#
-# def test_ntt_raw():
-#     pass
-#
-#
-# def test_ntt():
-#     pass
-#
-#
-# def test_transpose():
-#     pass
-#
-#
-# def test_xof():
-#     pass
-#
-#
-# def test_prf():
-#     pass
-#
-#
-# def test_kdf():
-#     pass
-#
-#
-# def test_hash_h():
-#     pass
-#
-#
-# def test_hash_g():
-#     pass
-#
-#
+def test_encode_m_list_of_ints():
+    pass
+
+
+def test_encode_m_many_ints():
+    pass
+
+
+def test_encode_m_matrix():
+    pass
+
+
+def test_encode_m():
+    pass
+
+
+def test_decode_m_one_int():
+    pass
+
+
+def test_decode_m_list_of_ints():
+    pass
+
+
+def test_decode_m_many():
+    pass
+
+
+def test_decode_m_matrix():
+    pass
+
+
+def test_decode_m():
+    pass
+
+
+def test_ntt_one():
+    pass
+
+
+def test_ntt_many():
+    pass
+
+
+def test_ntt_raw():
+    pass
+
+
+def test_ntt():
+    pass
+
+
+def test_transpose():
+    pass
+
+
+def test_xof():
+    pass
+
+
+def test_prf():
+    pass
+
+
+def test_kdf():
+    pass
+
+
+def test_hash_h():
+    pass
+
+
+def test_hash_g():
+    pass
+
+
 # def test_cpa_pke_keygen():
 #     pass
 #
