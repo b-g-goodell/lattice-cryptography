@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int
+from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -501,19 +501,49 @@ def test_compress_one_int(x, d, p, expected_result):
 
 
 def test_compress_list_of_ints():
+    # applies compress_one_int many times
     pass
 
 
 def test_compress_many_ints():
+    # applies compress_list_of_ints many times
     pass
 
 
 def test_compress_polycoefs():
+    # returns a PolyCoefs object with compress_many_ints applied to the vals.
     pass
 
 
 def test_should_compress_many():
-    pass
+    x: list[list[list[int]]] = [[[7]]]
+    d: int = 1
+    p: int = 17
+    assert _should_compress_many(x=x, d=d, p=p)
+
+    x: int = 7
+    d: int = 1
+    p: int = 17
+    assert not _should_compress_many(x=x, d=d, p=p)
+
+    x: list[int] = [7]
+    d: int = 1
+    p: int = 17
+    assert not _should_compress_many(x=x, d=d, p=p)
+
+
+    d: int = 0
+    assert not _should_compress_many(x=x, d=d, p=p)
+
+    d: str = 'hello world'
+    assert not _should_compress_many(x=x, d=d, p=p)
+
+    d: int = 1
+    p: int = 1
+    assert not _should_compress_many(x=x, d=d, p=p)
+
+    p: str = 'hello world'
+    assert not _should_compress_many(x=x, d=d, p=p)
 
 
 def test_compress():

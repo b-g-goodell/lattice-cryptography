@@ -773,7 +773,7 @@ def _compress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[li
 
 
 def _compress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
-    return PolyCoefs(vals=_compress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
+    return PolyCoefs(vals=_compress_many_ints(x=x.vals, d=d, p=p), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
 
 
 def _should_compress_many(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> bool:
