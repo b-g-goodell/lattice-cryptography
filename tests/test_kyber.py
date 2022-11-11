@@ -497,23 +497,178 @@ COMPRESS_ONE_INT_CASES = [
 
 @pytest.mark.parametrize("x,d,p,expected_result", COMPRESS_ONE_INT_CASES)
 def test_compress_one_int(x, d, p, expected_result):
-    assert _compress_one_int(x=x,d=d,p=p) == expected_result
+    assert _compress_one_int(x=x, d=d, p=p) == expected_result
 
+
+def test_compress_list_of_ints():
+    pass
+
+
+def test_compress_many_ints():
+    pass
+
+
+def test_compress_polycoefs():
+    pass
+
+
+def test_should_compress_many():
+    pass
+
+
+def test_compress():
+    pass
 
 DECOMPRESS_ONE_INT_CASES = [
     (0, 1, 17, 0),
     (1, 1, 17, 9),
 ]
 
+
 @pytest.mark.parametrize("x,d,p,expected_result", DECOMPRESS_ONE_INT_CASES)
 def test_decompress_one_int(x, d, p, expected_result):
     assert _decompress_one_int(x=x, d=d, p=p) == expected_result
+
+
+def test_decompress_list_of_ints():
+    pass
+
+
+def test_decompress_many_ints():
+    pass
+
+
+def test_decompress_polycoefs():
+    pass
+
+
+def test_decompress():
+    pass
 
 
 ENCODE_M_ONE_INT_CASES = [
     (i, j, int2bytes(x=i, length=j)) for j in range(1, 3) for i in range(2**j)
 ]
 
+
 @pytest.mark.parametrize("x,m,expected_result", ENCODE_M_ONE_INT_CASES)
 def test_encode_m_one_int(x, m, expected_result):
     assert _encode_m_one_int(x=x, m=m) == expected_result
+
+
+# def test_encode_m_list_of_ints():
+#     pass
+#
+#
+# def test_encode_m_many_ints():
+#     pass
+#
+#
+# def test_encode_m_matrix():
+#     pass
+#
+#
+# def test_encode_m():
+#     pass
+#
+#
+# def test_decode_m_one_int():
+#     pass
+#
+#
+# def test_decode_m_list_of_ints():
+#     pass
+#
+#
+# def test_decode_m_many():
+#     pass
+#
+#
+# def test_decode_m_matrix():
+#     pass
+#
+#
+# def test_decode_m():
+#     pass
+#
+#
+# def test_ntt_one():
+#     pass
+#
+#
+# def test_ntt_many():
+#     pass
+#
+#
+# def test_ntt_raw():
+#     pass
+#
+#
+# def test_ntt():
+#     pass
+#
+#
+# def test_transpose():
+#     pass
+#
+#
+# def test_xof():
+#     pass
+#
+#
+# def test_prf():
+#     pass
+#
+#
+# def test_kdf():
+#     pass
+#
+#
+# def test_hash_h():
+#     pass
+#
+#
+# def test_hash_g():
+#     pass
+#
+#
+# def test_cpa_pke_keygen():
+#     pass
+#
+#
+# def test_cpa_pke_enc():
+#     pass
+#
+#
+# def test_cpa_pka_encrypt():
+#     pass
+#
+#
+# def test_cpa_pke_dec():
+#     pass
+#
+#
+# def test_cpa_pke_decrypt():
+#     pass
+#
+#
+# def test_cca_kem_keygen():
+#     pass
+#
+#
+# def test_cca_kem_enc():
+#     pass
+#
+#
+# def test_cca_kem_encapsulate():
+#     pass
+#
+#
+# def test_cca_kem_dec():
+#     pass
+#
+#
+# def test_cca_kem_decapsulate():
+#     pass
+#
+#
