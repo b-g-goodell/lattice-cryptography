@@ -416,6 +416,12 @@ class PolyCoefs(object):
         else:
             raise RuntimeError(f'Some unspecified error occurred while instantiating a PolyCoefs object. Please contact the developers with a description of the input to the __init__ function.')
 
+    def __eq__(self, other):
+        return self.q == other.q and \
+               self.k1 == other.k1 and \
+               self.k2 == other.k2 and \
+               all((a-b) % self.q == 0 for x, y in zip(self.vals, other.vals) for z, w in zip(x, y) for a, b in zip(z, w))
+
     def __add__(self, other):
         if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals, q_a=self.q, q_b=other.q):
             result = deepcopy(self)
@@ -542,6 +548,12 @@ class PolyNTT(object):
         else:
             raise RuntimeError(f'Some unspecified error occurred while instantiating a PolyCoefs object. Please contact the developers with a description of the input to the __init__ function.')
 
+    def __eq__(self, other):
+        return self.q == other.q and \
+               self.k1 == other.k1 and \
+               self.k2 == other.k2 and \
+               all(0 == (a-b) % self.q for x, y in zip(self.vals, other.vals) for z, w in zip(x, y) for a, b in zip(z, w))
+
     def __add__(self, other):
         if is_arithmetic_legal(a_vals=self.vals, b_vals=other.vals, q_a=self.q, q_b=other.q):
             result = deepcopy(self)
@@ -560,33 +572,35 @@ class PolyNTT(object):
         return self.__add__(other=other)
 
     def __mul__(self, other):
-        num_rows_in_self: int = len(self.vals)
-        num_rows_in_other: int = len(other.vals)
+        if isinstance(other, PolyNTT) and isinstance(other, PolyNTT):
+            num_rows_in_self: int = len(self.vals)
+            num_rows_in_other: int = len(other.vals)
 
-        min_cols_in_self: int = min(len(x) for x in self.vals)
-        min_cols_in_other: int = min(len(x) for x in other.vals)
-        max_cols_in_self: int = max(len(x) for x in self.vals)
-        max_cols_in_other: int = max(len(x) for x in other.vals)
-        consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
-        consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
+            min_cols_in_self: int = min(len(x) for x in self.vals)
+            min_cols_in_other: int = min(len(x) for x in other.vals)
+            max_cols_in_self: int = max(len(x) for x in self.vals)
+            max_cols_in_other: int = max(len(x) for x in other.vals)
+            consistent_cols_in_self: bool = max_cols_in_self == min_cols_in_self
+            consistent_cols_in_other: bool = max_cols_in_other == min_cols_in_other
 
-        min_deg_in_self: int = min(len(x) for i in self.vals for x in i)
-        min_deg_in_other: int = min(len(x) for i in other.vals for x in i)
-        max_deg_in_self: int = max(len(x) for i in self.vals for x in i)
-        max_deg_in_other: int = max(len(x) for i in other.vals for x in i)
-        consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
-        consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
+            min_deg_in_self: int = min(len(x) for i in self.vals for x in i)
+            min_deg_in_other: int = min(len(x) for i in other.vals for x in i)
+            max_deg_in_self: int = max(len(x) for i in self.vals for x in i)
+            max_deg_in_other: int = max(len(x) for i in other.vals for x in i)
+            consistent_deg_in_self: bool = max_deg_in_self == min_deg_in_self
+            consistent_deg_in_other: bool = max_deg_in_other == min_deg_in_other
 
-        # same_rows: bool = num_rows_in_self == num_rows_in_other
-        # same_cols: bool = max_cols_in_self == max_cols_in_other
-        same_deg: bool = max_deg_in_self == max_deg_in_other
+            # same_rows: bool = num_rows_in_self == num_rows_in_other
+            # same_cols: bool = max_cols_in_self == max_cols_in_other
+            same_deg: bool = max_deg_in_self == max_deg_in_other
 
-        if num_rows_in_self == 1 and consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == 1 and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-            return self._scalar_mul(other=other)
-        elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
-            return self._matrix_mul(other=other)
-        raise ValueError(
-            'Cannot compute PolynomialNTTMatrix.__mul__ with unless self is 1x1 and both have consistent degrees, or where self is mxn, other is nxp, and both have consistent degrees (dim mismatch).')
+            if num_rows_in_self == 1 and consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == 1 and consistent_deg_in_self and consistent_deg_in_other and same_deg:
+                return self._scalar_mul(other=other)
+            elif consistent_cols_in_self and consistent_cols_in_other and max_cols_in_self == num_rows_in_other and consistent_deg_in_self and consistent_deg_in_other and same_deg:
+                return self._matrix_mul(other=other)
+            raise ValueError(
+                'Cannot compute PolynomialNTTMatrix.__mul__ unless self is 1x1 and both have consistent degrees, or where self is mxn, other is nxp, and both have consistent degrees (dim mismatch).')
+        raise NotImplementedError(f'Cannot compute PolyNTT.__mul__ unless both self and other are PolyNTT.')
 
     def _scalar_mul(self, other):
         result = deepcopy(other)

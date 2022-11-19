@@ -1,4 +1,4 @@
-from crystals.kyber import SEED_LEN_IN_BYTES, Q, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _our_parse_one, _our_parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _should_compress_many, compress, decompress, _encode_m_list_of_ints_to_bytes, _encode_m_many, encode_m, _decode_m_list_of_ints_from_bytes, decode_m, cpa_pke_keygen, CPA_PKE_SK_LEN, CPA_PKE_PK_LEN, CPA_PKE_CIPHERTEXT_LEN, _cpa_pke_enc, _encode_m_matrix, _cpa_pke_dec
+from crystals.kyber import SEED_LEN_IN_BYTES, Q, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _our_parse_one, _our_parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _should_compress_many, compress, decompress, _encode_m_list_of_ints_to_bytes, _encode_m_many, encode_m, _decode_m_list_of_ints_from_bytes, decode_m, cpa_pke_keygen, CPA_PKE_SK_LEN, CPA_PKE_PK_LEN, CPA_PKE_CIPHERTEXT_LEN, _cpa_pke_enc, _encode_m_matrix, _cpa_pke_dec, _ntt_one, ntt
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -210,10 +210,120 @@ def test_add():
     pass
 
 
-def test_mul():
-    # too simple to bother testing
-    pass
+def test_polynomial_mul():
+    identity_matrix_coefs: list[list[list[int]]] = [[[0] * N] * 1] * 1
+    identity_matrix_coefs[0][0][0] = 1
+    identity_matrix: PolyCoefs = PolyCoefs(vals=identity_matrix_coefs, q=Q, n=N, k1=1, k2=1)
+    identity_matrix_ntt: PolyNTT = ntt(identity_matrix)
+    assert len(identity_matrix_ntt.vals) == 1
+    assert len(identity_matrix_ntt.vals[0]) == 1
+    assert len(identity_matrix_ntt.vals[0][0]) == N
+    assert all(z == 1 for x in identity_matrix_ntt.vals for y in x for z in y)
 
+    new_random_matrix_coefs: list[list[list[int]]] = [[[randrange(Q) for _ in range(N)]]]
+    new_random_matrix: PolyCoefs = PolyCoefs(vals=new_random_matrix_coefs, q=Q, n=N, k1=1, k2=1)
+    new_random_matrix_ntt: PolyNTT = ntt(new_random_matrix)
+    assert len(new_random_matrix_ntt.vals) == 1
+    assert len(new_random_matrix_ntt.vals[0]) == 1
+    assert len(new_random_matrix_ntt.vals[0][0]) == N
+
+    with pytest.raises(NotImplementedError):
+        new_random_matrix * identity_matrix
+    with pytest.raises(NotImplementedError):
+        new_random_matrix * identity_matrix_ntt
+    with pytest.raises(NotImplementedError):
+        new_random_matrix_ntt * identity_matrix
+
+    id_times_new_ntt: PolyNTT = identity_matrix_ntt * new_random_matrix_ntt
+    new_times_id_ntt: PolyNTT = new_random_matrix_ntt * identity_matrix_ntt
+    id_times_new: PolyCoefs = ntt(id_times_new_ntt)
+    new_times_id: PolyCoefs = ntt(new_times_id_ntt)
+
+    assert id_times_new.q == new_times_id.q == new_random_matrix.q == Q
+    assert id_times_new.k1 == new_times_id.k1 == new_random_matrix.k1 == 1
+    assert id_times_new.k2 == new_times_id.k2 == new_random_matrix.k2 == 1
+    for i in range(1):
+        for j in range(1):
+            for l in range(N):
+                assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % Q == 0
+    assert id_times_new == new_random_matrix
+    assert new_times_id == new_random_matrix
+
+
+
+    identity_matrix_coefs: list[list[list[int]]] = [[[0] * N] * K] * K
+    for i in range(K):
+        for j in range(K):
+            if i == j:
+                identity_matrix_coefs[i][j][0] = 1
+    identity_matrix: PolyCoefs = PolyCoefs(vals=identity_matrix_coefs, q=Q, n=N, k1=K, k2=K)
+    identity_matrix_ntt: PolyNTT = ntt(identity_matrix)
+    assert len(identity_matrix_ntt.vals) == K
+    assert all(len(x) == K for x in identity_matrix_ntt.vals)
+    assert all(len(y) == N for x in identity_matrix_ntt.vals for y in x)
+    assert all(z == 1 for x in identity_matrix_ntt.vals for y in x for z in y)
+
+    new_random_matrix_coefs: list[list[list[int]]] = [[[randrange(Q) for l in range(N)] for j in range(K)] for i in range(K)]
+    new_random_matrix: PolyCoefs = PolyCoefs(vals=new_random_matrix_coefs, q=Q, n=N, k1=K, k2=K)
+    new_random_matrix_ntt: PolyNTT = ntt(new_random_matrix)
+    assert len(new_random_matrix_ntt.vals) == K
+    assert len(new_random_matrix_ntt.vals[0]) == K
+    assert len(new_random_matrix_ntt.vals[0][0]) == N
+
+    with pytest.raises(NotImplementedError):
+        new_random_matrix * identity_matrix
+    with pytest.raises(NotImplementedError):
+        new_random_matrix * identity_matrix_ntt
+    with pytest.raises(NotImplementedError):
+        new_random_matrix_ntt * identity_matrix
+
+    id_times_new_ntt: PolyNTT = identity_matrix_ntt * new_random_matrix_ntt
+    new_times_id_ntt: PolyNTT = new_random_matrix_ntt * identity_matrix_ntt
+    id_times_new: PolyCoefs = ntt(id_times_new_ntt)
+    new_times_id: PolyCoefs = ntt(new_times_id_ntt)
+
+    assert id_times_new.q == new_times_id.q == new_random_matrix.q == Q
+    assert id_times_new.k1 == new_times_id.k1 == new_random_matrix.k1 == K
+    assert id_times_new.k2 == new_times_id.k2 == new_random_matrix.k2 == K
+    for i in range(K):
+        for j in range(K):
+            for l in range(N):
+                assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % Q == 0
+    assert id_times_new == new_random_matrix
+    assert new_times_id == new_random_matrix
+
+
+#
+# # @pytest.mark.skip
+# def test_polynomial_mul_small_without_const_time(one_without_const_time,
+#                                                  pairs_of_random_polys_and_their_products_without_const_time):
+#     lp = lp_for_testing
+#     # First, let's make an identity polynomials and add it to itself
+#     assert one_without_const_time * one_without_const_time == one_without_const_time
+#
+#     # Now let's do some addition with some random linear polynomials (AND the unity)
+#     for next_item in pairs_of_random_polys_and_their_products_without_const_time:
+#         f_dat, g_dat, expected_h_dat, observed_h_dat = next_item
+#         a_f, b_f, f = f_dat
+#         a_g, b_g, g = g_dat
+#         a_h, b_h, c_h, exp_h, exp_h_norm, exp_h_wt = expected_h_dat
+#         obs_h_coefs, obs_h, obs_h_norm, obs_h_wt = observed_h_dat
+#         assert one_without_const_time * f == f
+#         assert f * one_without_const_time == f
+#         assert one_without_const_time * g == g
+#         assert g * one_without_const_time == g
+#         assert f * g == exp_h == obs_h
+#         assert len(obs_h_coefs) == 3
+#         assert 0 in obs_h_coefs
+#         assert 1 in obs_h_coefs
+#         assert 2 in obs_h_coefs
+#         assert (obs_h_coefs[0] - a_h) % lp.modulus == 0
+#         assert (obs_h_coefs[1] - b_h) % lp.modulus == 0
+#         assert (obs_h_coefs[2] - c_h) % lp.modulus == 0
+#         assert (a_f * a_g - a_h) % lp.modulus == 0
+#         assert (a_f * b_g + b_f * a_g - b_h) % lp.modulus == 0
+#         assert (b_f * b_g - c_h) % lp.modulus == 0
+#
 
 def test_polycoefs():
     x: PolyCoefs = PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
@@ -679,20 +789,58 @@ def test_decode_m():
     pass
 
 
-def test_ntt_one():
-    pass
+# def test_ntt_one():
+#     pass
+#
+#
+# def test_ntt_many():
+#     pass
+#
+#
+# def test_ntt_raw():
+#     pass
+
+# We only test the NTT and inverse of constant polynomials here; more thorough tests are advisable
+NTT_CASES = [
+    (False, [1] + [0] * (N-1), [1] * N),
+    (False, [2] + [0] * (N-1), [2] * N),
+    (False, [3] + [0] * (N-1), [3] * N),
+    (False, [4] + [0] * (N-1), [4] * N),
+    (False, [5] + [0] * (N-1), [5] * N),
+    (False, [6] + [0] * (N-1), [6] * N),
+    (False, [7] + [0] * (N-1), [7] * N),
+    (False, [8] + [0] * (N-1), [8] * N),
+    (False, [-8] + [0] * (N-1), [-8] * N),
+    (False, [-7] + [0] * (N-1), [-7] * N),
+    (False, [-6] + [0] * (N-1), [-6] * N),
+    (False, [-5] + [0] * (N-1), [-5] * N),
+    (False, [-4] + [0] * (N-1), [-4] * N),
+    (False, [-3] + [0] * (N-1), [-3] * N),
+    (False, [-2] + [0] * (N-1), [-2] * N),
+    (False, [-1] + [0] * (N-1), [-1] * N),
+    (True, [1] * N, [1] + [0] * (N-1)),
+    (True, [2] * N, [2] + [0] * (N-1)),
+    (True, [3] * N, [3] + [0] * (N-1)),
+    (True, [4] * N, [4] + [0] * (N-1)),
+    (True, [5] * N, [5] + [0] * (N-1)),
+    (True, [6] * N, [6] + [0] * (N-1)),
+    (True, [7] * N, [7] + [0] * (N-1)),
+    (True, [8] * N, [8] + [0] * (N-1)),
+    (True, [-8] * N, [-8] + [0] * (N-1)),
+    (True, [-7] * N, [-7] + [0] * (N-1)),
+    (True, [-6] * N, [-6] + [0] * (N-1)),
+    (True, [-5] * N, [-5] + [0] * (N-1)),
+    (True, [-4] * N, [-4] + [0] * (N-1)),
+    (True, [-3] * N, [-3] + [0] * (N-1)),
+    (True, [-2] * N, [-2] + [0] * (N-1)),
+    (True, [-1] * N, [-1] + [0] * (N-1)),
+]
 
 
-def test_ntt_many():
-    pass
-
-
-def test_ntt_raw():
-    pass
-
-
-def test_ntt():
-    pass
+@pytest.mark.parametrize("inv_flag,x,expected_output", NTT_CASES)
+def test_ntt_one(inv_flag, x, expected_output):
+    assert expected_output == _ntt_one(x=x, inv_flag=inv_flag, const_time=False)
+    assert expected_output == _ntt_one(x=x, inv_flag=inv_flag)
 
 
 def test_transpose():
