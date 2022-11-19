@@ -1,4 +1,4 @@
-from crystals.kyber import Q, _int2bytes, int2bytes, _bytes2int, bytes2int, _bit_rev, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _parse_one, _parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _encode_m_one_int, _should_compress_many, compress, decompress
+from crystals.kyber import SEED_LEN_IN_BYTES, Q, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _our_parse_one, _our_parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _should_compress_many, compress, decompress, _encode_m_list_of_ints_to_bytes, _encode_m_many, encode_m, _decode_m_list_of_ints_from_bytes, decode_m, cpa_pke_keygen, CPA_PKE_SK_LEN, CPA_PKE_PK_LEN, CPA_PKE_CIPHERTEXT_LEN, _cpa_pke_enc, _encode_m_matrix, _cpa_pke_dec
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -6,61 +6,6 @@ from math import ceil, log2
 
 SAMPLE_SIZE: int = 2**10
 LOG_SAMPLE_SIZE: int = 10
-
-
-def test_int2bytes():
-    assert _int2bytes(x=7, length=1) == bytes([7])
-
-    with pytest.raises(TypeError):
-        int2bytes(x='hello world', length=17)
-    with pytest.raises(TypeError):
-        int2bytes(x='hello world', length=0.001)
-    with pytest.raises(TypeError):
-        int2bytes(x=7, length=0.001)
-    with pytest.raises(ValueError):
-        int2bytes(x=-1, length=17)
-    with pytest.raises(ValueError):
-        int2bytes(x=7, length=0)
-
-    assert int2bytes(x=7, length=3) == bytes([0, 0, 7])
-    assert int2bytes(x=7, length=4) == bytes([0, 0, 0, 7])
-    assert int2bytes(x=7, length=17) == bytes([0] * 16 + [7])
-
-
-def test_bytes2int():
-    with pytest.raises(TypeError):
-        bytes2int(x='hello world')
-
-    with pytest.raises(TypeError):
-        bytes2int(x=0.001)
-
-    assert _bytes2int(x=bytes([7])) == 7
-    assert _bytes2int(x=bytes([0, 0, 7])) == 7
-    assert _bytes2int(x=bytes([0, 0, 0, 7])) == 7
-    assert _bytes2int(x=bytes([0] * 16 + [7])) == 7
-
-    assert bytes2int(x=bytes([7])) == 7
-    assert bytes2int(x=bytes([0, 0, 7])) == 7
-    assert bytes2int(x=bytes([0, 0, 0, 7])) == 7
-    assert bytes2int(x=bytes([0] * 16 + [7])) == 7
-
-
-def test_bytes2int_and_int2bytes_are_inverses():
-    length: int = LOG_SAMPLE_SIZE // 8 + 1
-    for i in range(SAMPLE_SIZE):
-        i2bytes = int2bytes(x=i, length=length)
-        i2bytes2i = bytes2int(x=i2bytes)
-        assert i2bytes2i == i
-
-    for i in range(SAMPLE_SIZE):
-        next_bytes_object = bytes(0)
-        for j in range(LOG_SAMPLE_SIZE):
-            next_bit = getrandbits(1)
-            if next_bit:
-                next_bytes_object += b'1'
-            else:
-                next_bytes_object += b'0'
-        assert int2bytes(x=bytes2int(x=next_bytes_object), length=LOG_SAMPLE_SIZE) == next_bytes_object
 
 
 def test_bit_rev():
@@ -155,10 +100,10 @@ def test_bit_rev_cp_full(x, expected_output):
 
 REDUCE_CASES = [(_, Q, _) if _ <= Q//2 else (_, Q, _ - Q) for _ in list(range(Q))]
 
-@pytest.mark.parametrize("x, q, expected_output", REDUCE_CASES)
-def test_reduce(x, q, expected_output):
-    assert _reduce(x=x, q=q) == expected_output
-    assert reduce(x=x, q=q) == expected_output
+# @pytest.mark.parametrize("x, q, expected_output", REDUCE_CASES)
+# def test_reduce(x, q, expected_output):
+#     assert _reduce(x=x, q=q) == expected_output
+#     assert reduce(x=x, q=q) == expected_output
 
 
 def test_reduce_fail():
@@ -204,7 +149,7 @@ def test_parse_one():
 
     resulting_ints: list[int]
     index: int
-    resulting_ints, index = _parse_one(x=bytes(test_integers_to_bytes))
+    resulting_ints, index = _our_parse_one(x=bytes(test_integers_to_bytes))
     expected_ints = [_ for _ in test_integers if _ < Q]
     expected_ints = expected_ints[:N]
     assert len(resulting_ints) == N
@@ -214,7 +159,7 @@ def test_parse_one():
         assert next_result_int == next_test_int
 
     with pytest.raises(RuntimeError):
-        _parse_one(x=b'hello world')
+        _our_parse_one(x=b'hello world')
 
 
 def test_parse_many():
@@ -232,7 +177,7 @@ def test_parse_many():
 
         test_integers_to_bytes += [first_byte, second_byte, third_byte]
 
-    resulting_ints: list[list[list[int]]] = _parse_many(x=bytes(test_integers_to_bytes))
+    resulting_ints: list[list[list[int]]] = _our_parse_many(x=bytes(test_integers_to_bytes))
     # We only check shape, size, and modulus because we call _parse_one multiple times to make _parse_many
     assert isinstance(resulting_ints, list)
     assert len(resulting_ints) == K
@@ -244,7 +189,7 @@ def test_parse_many():
     assert all(0 <= z < Q for x in resulting_ints for y in x for z in y)
 
     with pytest.raises(RuntimeError):
-        _parse_many(x=b'hello world')
+        _our_parse_many(x=b'hello world')
 
 
 def test_parse():
@@ -677,38 +622,49 @@ def test_decompress(x, d, p, expected_result):
     decompress(x=x, d=d, p=p) == expected_result
 
 
-ENCODE_M_ONE_INT_CASES = [
-    (i, j, int2bytes(x=i, length=j)) for j in range(1, 3) for i in range(2**j)
+ENCODE_M_LIST_OF_INTS_CASES = [
+    (list(range(4)), 2, bytes([39])),
+    (list(range(10)), 4, bytes([8, 76, 42, 110, 25]))
 ]
 
 
-@pytest.mark.parametrize("x,m,expected_result", ENCODE_M_ONE_INT_CASES)
-def test_encode_m_one_int(x, m, expected_result):
-    assert _encode_m_one_int(x=x, m=m) == expected_result
+@pytest.mark.parametrize("x,m,expected_result", ENCODE_M_LIST_OF_INTS_CASES)
+def test_encode_m_list_of_ints(x, m, expected_result):
+    assert _encode_m_list_of_ints_to_bytes(x=x, bits_per_int=m) == expected_result
+    assert len(expected_result) == ceil(m*len(x)/8)
 
 
-def test_encode_m_list_of_ints():
-    pass
+ENCODE_M_MANY_CASES = [
+    ([[list(range(16))], [list(range(16))]], 4, bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]))
+]
 
 
-def test_encode_m_many_ints():
-    pass
+@pytest.mark.parametrize("x,m,expected_result", ENCODE_M_MANY_CASES)
+def test_encode_m_many(x,m,expected_result):
+    assert _encode_m_many(x=x, bits_per_int=m) == expected_result
 
 
-def test_encode_m_matrix():
-    pass
+ENCODE_M_MATRIX_CASES = [
+    (PolyNTT(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, False)),
+    (PolyCoefs(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, True))
+]
+
+
+@pytest.mark.parametrize("x,m,expected_result", ENCODE_M_MATRIX_CASES)
+def test_encode_m_matrix(x, m, expected_result):
+    assert _encode_m_matrix(x=x, bits_per_int=m) == expected_result
 
 
 def test_encode_m():
     pass
 
 
-def test_decode_m_one_int():
-    pass
-
-
-def test_decode_m_list_of_ints():
-    pass
+def test_decode_m_list_of_ints_from_bytes():
+    bits_per_int: int = 10
+    some_ints: list[int] = [getrandbits(bits_per_int) for _ in range(2)]
+    encoded_ints: bytes = encode_m(x=some_ints, bits_per_int=bits_per_int)
+    decoded_encoded_ints: list[int] = _decode_m_list_of_ints_from_bytes(x=encoded_ints, bits_per_int=bits_per_int)
+    assert decoded_encoded_ints == some_ints
 
 
 def test_decode_m_many():
@@ -763,25 +719,63 @@ def test_hash_g():
     pass
 
 
-# def test_cpa_pke_keygen():
-#     pass
-#
-#
-# def test_cpa_pke_enc():
-#     pass
-#
-#
-# def test_cpa_pka_encrypt():
-#     pass
-#
-#
-# def test_cpa_pke_dec():
-#     pass
-#
-#
-# def test_cpa_pke_decrypt():
-#     pass
-#
+def test_cpa_pke_keygen(mocker):
+    mocker.patch('crystals.kyber.hash_g', return_value=bytes(range(2 * SEED_LEN_IN_BYTES)))
+    mocker.patch('crystals.kyber.parse', return_value=list(range(N)))
+    mocker.patch('crystals.kyber.cbd_eta', return_value=list(range(N)))
+    some_keys = cpa_pke_keygen()
+    assert isinstance(some_keys, bytes)
+    assert len(some_keys) == CPA_PKE_PK_LEN + CPA_PKE_SK_LEN
+
+
+def test_cpa_pke_enc(mocker):
+    mocker.patch('crystals.kyber.hash_g', return_value=bytes(list(range(2 * SEED_LEN_IN_BYTES))))
+    mocker.patch('crystals.kyber.parse', return_value=list(range(N)))
+    mocker.patch('crystals.kyber.cbd_eta', return_value=list(range(N)))
+
+    # Roll a random 32-byte plaintext. Note: all plaintexts must be 32-byte messages.
+    plaintext: bytes = getrandbits(SEED_LEN_IN_BYTES * 8).to_bytes(length=SEED_LEN_IN_BYTES, byteorder='big')
+
+    some_keys: bytes = cpa_pke_keygen()
+    assert len(some_keys) == CPA_PKE_PK_LEN + CPA_PKE_SK_LEN
+    pk: bytes = some_keys[:CPA_PKE_PK_LEN]
+    randomness: bytes = getrandbits(SEED_LEN_IN_BYTES * 8).to_bytes(length=SEED_LEN_IN_BYTES, byteorder='big')
+    ciphertext: bytes = _cpa_pke_enc(pk=pk, plaintext=plaintext, randomness=randomness)
+    assert isinstance(ciphertext, bytes)
+    assert len(ciphertext) == CPA_PKE_CIPHERTEXT_LEN
+
+
+def test_cpa_pka_encrypt():
+    pass
+
+
+def test_cpa_pke_dec(mocker):
+    mocker.patch('crystals.kyber.hash_g', return_value=bytes(list(range(2 * SEED_LEN_IN_BYTES))))
+    mocker.patch('crystals.kyber.parse', return_value=list(range(N)))
+    mocker.patch('crystals.kyber.cbd_eta', return_value=list(range(N)))
+
+    # Roll a random 32-byte plaintext. Note: all plaintexts must be 32-byte messages.
+    plaintext: bytes = getrandbits(SEED_LEN_IN_BYTES * 8).to_bytes(length=SEED_LEN_IN_BYTES, byteorder='big')
+
+    some_keys: bytes = cpa_pke_keygen()
+    assert len(some_keys) == CPA_PKE_PK_LEN + CPA_PKE_SK_LEN
+
+    pk: bytes = some_keys[:CPA_PKE_PK_LEN]
+    randomness: bytes = getrandbits(SEED_LEN_IN_BYTES * 8).to_bytes(length=SEED_LEN_IN_BYTES, byteorder='big')
+    ciphertext: bytes = _cpa_pke_enc(pk=pk, plaintext=plaintext, randomness=randomness)
+    assert isinstance(ciphertext, bytes)
+    assert len(ciphertext) == CPA_PKE_CIPHERTEXT_LEN
+
+    sk: bytes = some_keys[CPA_PKE_PK_LEN:]
+    decrypted_ciphertext: bytes = _cpa_pke_dec(sk=sk, ciphertext=ciphertext)
+    assert isinstance(decrypted_ciphertext, bytes)
+    assert len(decrypted_ciphertext) == len(plaintext)
+    assert decrypted_ciphertext == plaintext
+
+
+def test_cpa_pke_decrypt():
+    pass
+
 #
 # def test_cca_kem_keygen():
 #     pass
@@ -801,5 +795,5 @@ def test_hash_g():
 #
 # def test_cca_kem_decapsulate():
 #     pass
-#
-#
+
+

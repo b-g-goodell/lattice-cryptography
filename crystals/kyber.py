@@ -24,6 +24,7 @@ Brandon Goodell (lead author), Mitchell Krawiec-Thayer.
 """
 from math import ceil, floor, log2
 from copy import deepcopy
+from secrets import randbits
 
 # Parameters from Kyber1024
 N: int = 256
@@ -35,91 +36,26 @@ D_V: int = 5
 ROU: int = 17
 ROU_INVERSE: int = 1175
 SECBITS: int = 174  # in a sense, "target bits of security," although Kyber1024 claims only 128 bits of sec.
-SEED_LEN: int = 32
+SEED_LEN_IN_BYTES: int = 32
 
 
 # Convenient constants derived from the parameters above
-TWICE_N: int = 2 * N
-LOG_TWICE_N: int = ceil(log2(TWICE_N))
+LOG_N: int = ceil(log2(N))
 HALF_Q: int = Q // 2
 LOG_Q: int = ceil(log2(Q))
+LOG_Q_BITS_IN_BYTES: int = ceil(LOG_Q / 8)
 LOG_K: int = ceil(log2(K))
-ZETAS: list[int] = [(ROU ** i) % Q for i in [TWICE_N // (2 ** (j + 1)) for j in range(LOG_TWICE_N)]]
-ZETA_INVERSES: list[int] = [(ROU_INVERSE ** i) % Q for i in [TWICE_N // (2 ** (j + 1)) for j in range(LOG_TWICE_N)]]
+ZETAS: list[int] = [(ROU ** i) % Q for i in [N // (2 ** (j + 1)) for j in range(LOG_N)]]
+ZETA_INVERSES: list[int] = [(ROU_INVERSE ** i) % Q for i in [N // (2 ** (j + 1)) for j in range(LOG_N)]]
 
-CPA_PKE_SK_LEN: int = LOG_Q * K * N // 8
-CPA_PKE_PK_LEN: int = LOG_Q * K * N // 8 + SEED_LEN
-ENCODED_CPA_PKE_SK_LEN: int = CPA_PKE_SK_LEN // (K * N // 8)
-ENCODED_CPA_PKE_PK_LEN: int = (CPA_PKE_PK_LEN - SEED_LEN) // (K * N // 8)
-CPA_PKE_FIRST_CIPHERTEXT_LEN: int = D_U * K * N // 8
-CPA_PKE_SECOND_CIPHERTEXT_LEN: int = D_V * N // 8
+CPA_PKE_SK_LEN: int = ceil(K * N * LOG_Q / 8)
+CPA_PKE_PK_LEN: int = CPA_PKE_SK_LEN + SEED_LEN_IN_BYTES
+CPA_PKE_FIRST_CIPHERTEXT_LEN: int = ceil(K * N * D_U / 8)
+CPA_PKE_SECOND_CIPHERTEXT_LEN: int = ceil(N * D_V / 8)
 CPA_PKE_CIPHERTEXT_LEN: int = CPA_PKE_FIRST_CIPHERTEXT_LEN + CPA_PKE_SECOND_CIPHERTEXT_LEN
-CCA_KEM_SK_LEN: int = CPA_PKE_SK_LEN + CPA_PKE_PK_LEN + 2*SEED_LEN
+CCA_KEM_SK_LEN: int = CPA_PKE_SK_LEN + CPA_PKE_PK_LEN + 2 * SEED_LEN_IN_BYTES
 CCA_KEM_PK_LEN: int = CPA_PKE_PK_LEN
 CCA_KEM_CIPHERTEXT_LEN: int = CPA_PKE_CIPHERTEXT_LEN
-
-
-def _int2bytes(x: int, length: int) -> bytes:
-    result: list[int] = []
-    x_as_bin: str = bin(x)[2:].zfill(8*length)
-    for i in range(length):
-        next_int: int = 0
-        exponent: int = 1
-        for next_bit in x_as_bin[8*i: 8*(i+1)][::-1]:
-            next_int += int(next_bit == '1') * exponent
-            exponent *= 2
-        result += [next_int]
-    return bytes(result)
-
-
-def int2bytes(x: int, length: int = LOG_K) -> bytes:
-    """
-    Essentially the encode function from the specs for a single integer: write the binary expansion of 'x', fill out
-    to take up 'length' bits. NOTE: output of this function is a bytes object consisting of 'length//8' bytes.
-
-    :param x: Input integer to be encoded as bytes.
-    :type x: int
-    :param length: Length
-    :type length: int
-
-    :return: Bytes representation of input x
-    :rtype: bytes
-    """
-    if isinstance(x, int) and isinstance(length, int) and length >= 1 and 0 <= x < 2**(length*8):
-        return _int2bytes(x=x, length=length)
-    elif not isinstance(x, int):
-        raise TypeError(f'Cannot int2bytes with non-integer x, but had type(x)={type(x)}.')
-    elif not isinstance(length, int):
-        raise TypeError(f'Cannot int2bytes with non-integer length, but had type(length)={type(length)}.')
-    elif x < 0:
-        raise ValueError(f'Cannot int2bytes with negative integer x but had x={x}.')
-    elif length < 1:
-        raise ValueError(f'Cannot int2bytes without at least one byte but had length={length}.')
-    raise ValueError(f'Cannot _int2bytes with x, length unless input integer x={x} can be described with at most {length} bytes. Try calling _int2bytes with a larger length.')
-
-
-def _bytes2int(x: bytes) -> int:
-    exponent: int = 1
-    result: int = 0
-    for y in x[::-1]:
-        result += y * exponent
-        exponent *= 256
-    return result
-
-
-def bytes2int(x: bytes) -> int:
-    """
-    Essentially the decode function from the specs for a single integer, interprets the input bytes object as the binary
-    expansion of an integer in bits but written as bytes.
-
-    :param x: Input integer to be encoded as bytes.
-    :type x: int
-    :return: Integer representation of input x
-    :rtype: int
-    """
-    if isinstance(x, bytes):
-        return _bytes2int(x=x)
-    raise TypeError(f'Cannot bytes2int with x unless x is a bytes object, but had type(x)={type(x)}.')
 
 
 def _bit_rev(x: int, length_in_bits: int) -> int:
@@ -243,7 +179,7 @@ def round_up(x: float | int) -> int:
     raise TypeError(f'Cannot round_up with x unless x is a float or an int, but had type(x)={type(x)}.')
 
 
-def _parse_one(x: bytes) -> tuple[list[int], int]:
+def _our_parse_one(x: bytes) -> tuple[list[int], int]:
     """
     Parse an input bytes object into a 2-tuple, where the first entry is a list of N=256 integers in the list
     [0, 1, 2, 3, ..., Q - 1] for Q=3329, and the second entry is an integer describing the index of the
@@ -272,7 +208,7 @@ def _parse_one(x: bytes) -> tuple[list[int], int]:
     return result, i
 
 
-def _parse_many(x: bytes) -> list[list[list[int]]]:
+def _our_parse_many(x: bytes) -> list[list[list[int]]]:
     """
     Parse an input bytes object into a list of K=4 lists of K=4 lists of N=256 integers, each in the list
     [0, 1, 2, 3, ..., Q-1] for Q=3329, by calling _parse_one several times.
@@ -287,7 +223,7 @@ def _parse_many(x: bytes) -> list[list[list[int]]]:
     for i in range(K):
         result += [[]]
         for j in range(K):
-            next_result, starting_index = _parse_one(x=x[starting_index:])
+            next_result, starting_index = _our_parse_one(x=x[starting_index:])
             result[-1] += [next_result]
     return result
 
@@ -308,9 +244,9 @@ def parse(x: bytes) -> list[int] | list[list[list[int]]]:
     :rtype: list[list[list[int]]]
     """
     if isinstance(x, bytes) and len(x) == N*(LOG_Q + SECBITS)//8:
-        return _parse_one(x=x)[0]
+        return _our_parse_one(x=x)[0]
     elif isinstance(x, bytes) and len(x) >= K*K*N*(LOG_Q + SECBITS)//8:
-        return _parse_many(x=x)
+        return _our_parse_many(x=x)
     elif not isinstance(x, bytes):
         raise TypeError(f'Cannot parse with x unless x is a bytes object, but had type(x)={type(x)}.')
     raise ValueError(f'Cannot parse with x unless x is a bytes object with length {N * (LOG_Q + SECBITS) // 8} or length at least {K * K * N * (LOG_Q + SECBITS) // 8} but had len(x)={len(x)}.')
@@ -397,6 +333,8 @@ class PolyCoefs(object):
     """
     Class for coefficient representations of matrices of polynomials. Supports addition but not multiplication.
 
+    TODO: Removed checks for q-1 % 2n == 0
+
     Attributes
     ----------
         q: int
@@ -449,8 +387,6 @@ class PolyCoefs(object):
             raise ValueError(f'Cannot instantiate PolyCoefs object with degree n < 1 but had n={n}.')
         elif not is_pow_two(x=n):
             raise ValueError(f'Cannot instantiate PolyCoefs object with non-power-of-two degree n, but had n={n}.')
-        elif (q-1) % (2*n) != 0:
-            raise ValueError(f'Cannot instantiate PolyCoefs object with modulus q and degree n such that (q-1) % (2*n) != 0, but had (q-1) % (2*n) = {(q-1) % (2*n)}.')
         elif not isinstance(k1, int):
             raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer number of rows k1, but had type(k1)={type(k1)}.')
         elif k1 < 1:
@@ -464,11 +400,11 @@ class PolyCoefs(object):
         elif not isinstance(vals, list):
             raise TypeError(f'Cannot instantiate PolyCoefs object with non-list vals, but had type(vals)={type(vals)}.')
         elif len(vals) != k1:
-            raise ValueError(f'Cannot instantiate PolyCoefs object with vals without k1 rows, but had (len(vals), k1)={(len(vals), k1)}.')
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals without k1 rows, but had (len(vals), k1)={(len(vals), k1)}. Check that you specify k1 for non-standard sized data.')
         elif not all(isinstance(x, list) for x in vals):
             raise TypeError(f'Cannot instantiate PolyCoefs object with vals unless every row in vals is a list.')
         elif not all(len(x) == k2 for x in vals):
-            raise ValueError(f'Cannot instantiate PolyCoefs object with vals unless every row in vals has k2={k2} columns.')
+            raise ValueError(f'Cannot instantiate PolyCoefs object with vals unless every row in vals has k2={k2} columns. Check that you specify k1 for non-standard sized data.')
         elif not all(isinstance(y, list) for x in vals for y in x):
             raise TypeError(f'Cannot instantiate PolyCoefs object with vals unless every column in every row is a list.')
         elif not all(len(y) == n for x in vals for y in x):
@@ -499,6 +435,12 @@ class PolyCoefs(object):
 
     def __mul__(self, other):
         raise NotImplementedError(f'Multiplication of PolyCoefs is not implemented. Apply the NTT and multiply the resulting PolyNTT objects instead.')
+
+    def __mod__(self, other):
+        # Computes modulus in NON-CONSTANT TIME. Only use this if the input data is public information.
+        result = deepcopy(self)
+        result.vals = [[[z % other for z in y] for y in x] for x in result.vals]
+        return result
 
 
 class PolyNTT(object):
@@ -571,8 +513,6 @@ class PolyNTT(object):
             raise ValueError(f'Cannot instantiate PolyCoefs object with degree n < 1 but had n={n}.')
         elif not is_pow_two(x=n):
             raise ValueError(f'Cannot instantiate PolyCoefs object with non-power-of-two degree n, but had n={n}.')
-        elif (q-1) % (2*n) != 0:
-            raise ValueError(f'Cannot instantiate PolyCoefs object with modulus q and degree n such that (q-1) % (2*n) != 0, but had (q-1) % (2*n) = {(q-1) % (2*n)}.')
         elif not isinstance(k1, int):
             raise TypeError(f'Cannot instantiate PolyCoefs object with non-integer number of rows k1, but had type(k1)={type(k1)}.')
         elif k1 < 1:
@@ -668,6 +608,12 @@ class PolyNTT(object):
                 result.vals[-1] += [[]]
                 for k in range(len(self.vals[0][0])):
                     result.vals[-1][-1] += [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(len(self.vals[0]))), q=self.q)]
+        return result
+
+    def __mod__(self, other):
+        # Computes modulus in NON-CONSTANT TIME. Only use this if the input data is public information.
+        result = deepcopy(self)
+        result.vals = [[[z % other for z in y] for y in x] for x in result.vals]
         return result
 
 
@@ -808,11 +754,14 @@ def compress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: 
 
 
 def _decompress_one_int(x: int, d: int, p: int = Q) -> int:
-    return round_up(x=x * p / 2 ** d)
+    unrounded_result = x * p / 2 ** d
+    rounded_result = round_up(x=unrounded_result) % p
+    return rounded_result
 
 
 def _decompress_list_of_ints(x: list[int], d: int, p: int = Q) -> list[int]:
-    return [_decompress_one_int(x=y, d=d, p=p) for y in x]
+    decompressed_ints: list[int] = [_decompress_one_int(x=y, d=d, p=p) for y in x]
+    return decompressed_ints
 
 
 def _decompress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[list[list[int]]]:
@@ -820,7 +769,8 @@ def _decompress_many_ints(x: list[list[list[int]]], d: int, p: int = Q) -> list[
 
 
 def _decompress_polycoefs(x: PolyCoefs, d: int, p: int = Q) -> PolyCoefs:
-    return PolyCoefs(vals=_decompress_many_ints(x=x.vals, d=d, p=p), modulus=x.modulus, degree=x.degree)
+    decompressed_vals: list[list[list[int]]] = _decompress_many_ints(x=x.vals, d=d, p=p)
+    return PolyCoefs(vals=decompressed_vals, q=x.q, n=x.n, k1=x.k1, k2=x.k2)
 
 
 def decompress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p: int = Q) -> int | list[int] | list[list[list[int]]] | PolyCoefs:
@@ -850,80 +800,108 @@ def decompress(x: int | list[int] | list[list[list[int]]] | PolyCoefs, d: int, p
     raise ValueError(f'Cannot decompress with x, d, p unless x is an integer, or a list of integers, or a list of lists of lists of integers, or a PolyCoefs... and d is an integer >= 1, and p is an integer >= 2, but had (type(x), d, p)={(type(x), d, p)}.')
 
 
-def _encode_m_one_int(x: int, m: int) -> bytes:
-    return int2bytes(x=x, length=m)
-
-
-def _encode_m_list_of_ints(x: list[int], m: int) -> bytes:
-    result = bytes(0)
+def _encode_m_list_of_ints_to_bytes(x: list[int], bits_per_int: int) -> bytes:
+    resulting_ints: list[int] = []
+    resulting_bitstring: str = ''
     for y in x:
-        result += _encode_m_one_int(x=y, m=m)
-    return result
+        y_in_bin: str = bin(y)[2:].zfill(bits_per_int)  # big endian
+        nib_ni_y: str = y_in_bin[::-1]  # lil endian
+        resulting_bitstring += nib_ni_y
+    while len(resulting_bitstring) % 8 != 0:
+        resulting_bitstring += '0'  # pad zeros
+    next_byte: str
+    while len(resulting_bitstring) > 0:
+        next_byte, resulting_bitstring = resulting_bitstring[:8], resulting_bitstring[8:]
+        resulting_ints += [int(next_byte, 2)]
+    return bytes(resulting_ints)
 
 
-def _encode_m_many_ints(x: list[list[list[int]]], m: int) -> bytes:
+def _encode_m_many(x: list[list[list[int]]], bits_per_int: int) -> bytes:
     result = bytes(0)
     for y in x:
         for z in y:
-            result += _encode_m_list_of_ints(x=z, m=m)
+            result += _encode_m_list_of_ints_to_bytes(x=z, bits_per_int=bits_per_int)
     return result
 
 
-def _encode_m_matrix(x: PolyCoefs | PolyNTT, m: int) -> bytes:
-    return _encode_m_many_ints(x=x.vals, m=m)
+def _encode_m_matrix(x: PolyCoefs | PolyNTT, bits_per_int: int) -> tuple[bytes, int, int, int, int, bool]:
+    flag: bool = isinstance(x, PolyCoefs) and not isinstance(x, PolyNTT)
+    return (_encode_m_many(x=x.vals, bits_per_int=bits_per_int), x.q, x.n, x.k1, x.k2, flag)
 
 
-def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, m: int) -> bytes:
+def encode_m(x: int | list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT, bits_per_int: int) -> bytes | tuple[bytes, int, int, int, int, bool]:
     """
     We rename encode_l to encode_m to use m instead of l because l is an ambiguous character. Encodes an integer (or a
-    list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to bytes. Works
-    with the usual serialization... each piece of input data is an integer modulo p, and we just pad out the binary
-    expansion of the input data to m bytes.
+    list of integers, or a list of lists of lists of integers) or the integers in a PolyCoefs or PolyNTT object to
+    bytes. Works with the usual serialization... each piece of input data is an integer modulo p, and we just pad out
+    the binary expansion of the input data to m bytes.
 
     :param x: Input data
     :type x: int | list[int] | list[list[list[int]]] | PolyCoefs
-    :param m: Number of bytes
-    :type m: int
+    :param bits_per_int: Number of bytes
+    :type bits_per_int: int
 
     :return: Encoded data
     :rtype: bytes
     """
-    if isinstance(m, int) and m >= 1 and isinstance(x, int) and 0 <= x < 2 ** m:
-        return _encode_m_one_int(x=x, m=m)
-    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and len(x) == N and all(0 <= y < 2 ** m for y in x):
-        return _encode_m_list_of_ints(x=x, m=m)
-    elif isinstance(m, int) and m >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2**m for y in x for z in y for w in z):
-        return _encode_m_many_ints(x=x, m=m)
-    elif isinstance(m, int) and m >= 1 and (isinstance(x, PolyCoefs) or isinstance(x, PolyNTT)):
-        return _encode_m_matrix(x=x, m=m)
-    raise ValueError(f'Cannot compute encode for (x, m) unless m >= 1 is an integer and x is an m-bit integer, or a list of m-bit integers, or x is a list of lists of lists of m-bit integers, or x is a PolyCoefs, but had (type(x), m)={(type(x), m)}.')
+    if isinstance(bits_per_int, int) and bits_per_int >= 1 and isinstance(x, list) and all(isinstance(y, int) for y in x) and all(0 <= y < 2 ** bits_per_int for y in x):
+        return _encode_m_list_of_ints_to_bytes(x=x, bits_per_int=bits_per_int)
+    elif isinstance(bits_per_int, int) and bits_per_int >= 1 and isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and all(0 <= w < 2 ** bits_per_int for y in x for z in y for w in z):
+        return _encode_m_many(x=x, bits_per_int=bits_per_int)
+    elif isinstance(bits_per_int, int) and bits_per_int >= 1 and not isinstance(x, list) and (isinstance(x, PolyCoefs) ^ isinstance(x, PolyNTT)):
+        return _encode_m_matrix(x=x, bits_per_int=bits_per_int)
+    elif not isinstance(bits_per_int, int):
+        raise TypeError(f'Cannot compute encode with bits_per_int unless bits_per_int is an integer, but had type(bits_per_int)={type(bits_per_int)}.')
+    elif bits_per_int < 1:
+        raise ValueError(f'Cannot compute decode with negative or zero bits_per_int, but had bits_per_int={bits_per_int}.')
+    elif not isinstance(x, list) and not (isinstance(x, PolyCoefs) ^ isinstance(x, PolyNTT)):
+        raise TypeError(f'Cannot compute decode with x unless x is a list, a PolyCoefs object, or a PolyNTT object, but had type(x)={type(x)}.')
+    elif isinstance(x, list) and not isinstance(x, PolyCoefs) and not isinstance(x, PolyNTT) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and not all(isinstance(w, int) for y in x for z in y for w in z):
+        raise TypeError(f'Cannot compute decode with x when x is not PolyCoefs, not PolyNTT, and not list[int], but instead is a list[list[list[_]]] for some _ other than integers, but had (type(w) for y in x for z in y for w in z)={(type(w) for y in x for z in y for w in z)}.')
+    elif isinstance(x, list) and not isinstance(x, PolyCoefs) and not isinstance(x, PolyNTT) and not all(isinstance(y, list) for y in x) and not all(isinstance(y, int) for y in x):
+        raise TypeError(f'Cannot compute decode with x when x is not PolyCoefs, not PolyNTT, and not list[list[list[int]]] and is a list[_] for some _ other than integers, but had (type(y) for y in x)={(type(y) for y in x)}.')
+    raise ValueError(f'Cannot compute encode with x unless x is a list[int] or a list[list[list[int]]] where all the integers are appropriately sized.')
 
 
-def _decode_m_one_int(x: bytes) -> int:
-    # light wrapper for bytes2int
-    return bytes2int(x=x)
+def _decode_m_list_of_ints_from_bytes(x: bytes, bits_per_int: int) -> list[int]:
+    resulting_ints: list[int] = []
+    resulting_bitstring: str = ''
+    tni_txen: str
+    next_int_in_bin: str
+    for y in x:
+        resulting_bitstring += bin(y)[2:].zfill(8)
+    while len(resulting_bitstring) > 0:
+        nib_ni_tni_txen, resulting_bitstring = resulting_bitstring[:bits_per_int], resulting_bitstring[bits_per_int:]
+        next_int_in_bin: str = nib_ni_tni_txen[::-1]
+        if len(next_int_in_bin) == bits_per_int:
+            resulting_ints += [int(next_int_in_bin, 2)]
+    return resulting_ints
 
 
-def _decode_m_list_of_ints(x: bytes, m: int) -> list[int]:
-    return [_decode_m_one_int(x=x[i * m: (i + 1) * m]) for i in range(len(x) // m)]
-
-
-def _decode_m_many(x: bytes, m: int) -> list[list[list[int]]]:
+def _decode_m_many(x: bytes, bits_per_int: int, k1: int = K, k2: int = 1, n: int = N) -> list[list[list[int]]]:
     result: list[list[list[int]]] = []
-    y: list[bytes] = [x[i*N*m: (i+1)*N*m] for i in range(K)]
-    for next_row in y:
-        next_poly: list[int] = _decode_m_list_of_ints(x=next_row, m=m)
-        result += [[next_poly]]
+    remaining_bytes: bytes = deepcopy(x)
+    next_row: bytes
+    next_col: bytes
+    bytes_per_row: int = len(x) // k1
+    bytes_per_col: int = bytes_per_row // k2
+    while len(remaining_bytes) > 0:
+        result += [[]]
+        next_row, remaining_bytes = remaining_bytes[:bytes_per_row], remaining_bytes[bytes_per_row:]
+        while len(next_row) > 0:
+            next_col, next_row = next_row[:bytes_per_col], next_row[bytes_per_col:]
+            next_entry: list[int] = _decode_m_list_of_ints_from_bytes(x=next_col, bits_per_int=bits_per_int)
+            result[-1] += [next_entry]
     return result
 
 
-def _decode_m_matrix(x: bytes, m: int, ntt_matrix_flag: bool) -> PolyCoefs | PolyNTT:
+def _decode_m_matrix(x: bytes, bits_per_int: int, ntt_matrix_flag: bool, q: int = Q, k1: int = K, k2: int = 1, n: int = N) -> PolyCoefs | PolyNTT:
     if ntt_matrix_flag:
-        return PolyNTT(vals=_decode_m_many(x=x, m=m))
-    return PolyCoefs(vals=_decode_m_many(x=x, m=m))
+        return PolyNTT(vals=_decode_m_many(x=x, bits_per_int=bits_per_int, k1=k1, k2=k2, n=n), k1=k1, k2=k2, n=n, q=q)
+    return PolyCoefs(vals=_decode_m_many(x=x, bits_per_int=bits_per_int, k1=k1, k2=k2, n=n), k1=k1, k2=k2, n=n, q=q)
 
 
-def decode_m(x: bytes, m: int, coef_matrix_flag: bool = False, ntt_matrix_flag: bool = False) -> list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT:
+def decode_m(x: bytes, bits_per_int: int, coef_matrix_flag: bool = False, ntt_matrix_flag: bool = False, k1: int = K, k2: int = 1, n: int = N) -> list[int] | list[list[list[int]]] | PolyCoefs | PolyNTT:
     """
     We rename decode_l to decode_m to use m instead of l because l is an ambiguous character. Decodes a bytes object to
     an integer (or a list of integers, or a list of lists of lists of integers) or a PolyCoefs or PolyNTT object. Works
@@ -932,35 +910,50 @@ def decode_m(x: bytes, m: int, coef_matrix_flag: bool = False, ntt_matrix_flag: 
 
     :param x: Input data
     :type x: bytes
-    :param m: Number of bytes per integer
-    :type m: int
+    :param bits_per_int: Number of bytes per integer
+    :type bits_per_int: int
     :param coef_matrix_flag: Flag indicating whether input x should be decoded to a PolyCoefs object.
     :type coef_matrix_flag: bool
     :param ntt_matrix_flag: Flag indicating whether input x should be decoded to a PolyNTT object.
     :type ntt_matrix_flag: bool
+    :param k1: Integer indicating number of rows of the decoded matrix.
+    :type k1: int
+    :param k2: Integer indicating number of columsn of the decoded matrix.
+    :type k2: int
 
     :return: Encoded data
     :rtype: bytes
     """
-    if isinstance(x, bytes) and len(x) == N*m:
-        return _decode_m_list_of_ints(x=x, m=m)
-    elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and not coef_matrix_flag and not ntt_matrix_flag:
-        return _decode_m_many(x=x, m=m)
-    elif isinstance(x, bytes) and len(x) >= K*N*m and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and (coef_matrix_flag ^ ntt_matrix_flag):
-        return _decode_m_matrix(x=x, m=m, ntt_matrix_flag=ntt_matrix_flag)
-    raise ValueError(f'Cannot compute decode_m for (x, m, coef_matrix_flag, ntt_matrix_flag) unless (i) x is a bytes object of length {N*m} or (ii) x is a bytes object with length at least {K*N*m} and both coef_matrix_flag and ntt_matrix_flag are booleans with at most one of them True, but had (type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)={(type(x), len(x), type(coef_matrix_flag), coef_matrix_flag, type(ntt_matrix_flag), ntt_matrix_flag)}.')
+    if isinstance(x, bytes) and len(x) == ceil(n*bits_per_int/8) and isinstance(coef_matrix_flag, bool) and not coef_matrix_flag and isinstance(ntt_matrix_flag, bool) and not ntt_matrix_flag:
+        # In this case, we do not care about the coef_matrix_flag, the ntt_matrix_flag, k1, or k2.
+        return _decode_m_list_of_ints_from_bytes(x=x, bits_per_int=bits_per_int)
+    elif isinstance(x, bytes) and len(x) >= ceil(n*bits_per_int*k1*k2/8) and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and not coef_matrix_flag and not ntt_matrix_flag:
+        # In this case, we want a list[list[list[int]]] object returned, not a PolyNTT or a PolyCoefs
+        return _decode_m_many(x=x, bits_per_int=bits_per_int)
+    elif isinstance(x, bytes) and len(x) >= ceil(n*bits_per_int*k1*k2/8) and len(x) % (k1*k2) == 0 and isinstance(coef_matrix_flag, bool) and isinstance(ntt_matrix_flag, bool) and (coef_matrix_flag ^ ntt_matrix_flag):
+        # In this case, coef_matrix_flag XOR ntt_matrix_flag is True, so exactly one of these is true, and we want that sort of object in return.
+        return _decode_m_matrix(x=x, bits_per_int=bits_per_int, ntt_matrix_flag=ntt_matrix_flag, k1=k1, k2=k2, n=n)
+    elif not isinstance(x, bytes):
+        raise TypeError(f'Cannot compute decode_m unless input x is a bytes object, but had type(x)={type(x)}.')
+    elif len(x) != ceil(n*bits_per_int/8) and len(x) < ceil(n*bits_per_int*k1*k2/8):
+        raise ValueError(f'Cannot compute decode_m unless input x is a bytes object with length exactly {ceil(n*bits_per_int/8)} or at least {ceil(n*bits_per_int*k1*k2/8)} but had len(x) = {len(x)}.')
+    elif len(x) != ceil(n*bits_per_int/8) and len(x) % (k1*k2) != 0:
+        raise ValueError(f'Cannot compute decode_m with input x with len(x) >= {ceil(n*k1*k2*bits_per_int/8)} unless len(x) % {k1*k2} == 0, but had len(x) % {k1*k2} = {len(x) % (k1*k2)}.')
+    elif not isinstance(coef_matrix_flag, bool) or not isinstance(ntt_matrix_flag, bool):
+        raise TypeError(f'Cannot compute decode_m unless coef_matrix_flag and ntt_matrix_flag are both bool, but had type(coef_matrix_flag), type(ntt_matrix_flag) = {(type(coef_matrix_flag), type(ntt_matrix_flag))}.')
+    raise ValueError(f'Cannot compute decode_m if both coef_matrix_flag and ntt_matrix_flag are True.')
 
 
 def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
     bit_rev_x: list[int] = bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x))))
     m: int = 1
-    for s in range(1, LOG_TWICE_N + 1):
+    for s in range(1, LOG_N + 1):
         m *= 2
         if inv_flag:
             this_zeta: int = ZETA_INVERSES[s - 1]
         else:
             this_zeta: int = ZETAS[s - 1]
-        for k in range(0, TWICE_N, m):
+        for k in range(0, N, m):
             w: int = 1
             for j in range(m // 2):
                 t: int = w * bit_rev_x[k + j + m // 2]
@@ -978,7 +971,7 @@ def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]
                 w *= this_zeta
     if inv_flag:
         n_inv: int = 1
-        while (n_inv * TWICE_N) % Q != 1:
+        while (n_inv * N) % Q != 1:
             n_inv += 1
         if const_time:
             bit_rev_x: list[int] = [reduce(x=(n_inv * i)) for i in bit_rev_x]
@@ -1030,9 +1023,13 @@ def transpose(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
     :rtype: PolyCoefs | PolyNTT
     """
     if isinstance(x, PolyCoefs) or isinstance(x, PolyNTT):
-        result = deepcopy(x)
-        result.vals = [[x.vals[j][i] for j in range(len(x.vals))] for i in range(len(x.vals))]
-        return result
+        new_vals: list[list[list[int]]] = [[[] for i in range(x.k1)] for j in range(x.k2)]
+        for i in range(x.k1):
+            for j in range(x.k2):
+                new_vals[j][i] = x.vals[i][j]
+        if isinstance(x, PolyCoefs):
+            return PolyCoefs(vals=new_vals, k1=x.k2, k2=x.k1)
+        return PolyNTT(vals=new_vals, k1=x.k2, k2=x.k1)
     raise ValueError(f'Cannot transpose with x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={type(x)}.')
 
 
@@ -1111,167 +1108,171 @@ def hash_g(x: bytes) -> bytes:
     raise ValueError(f'Cannot compute HashFunctionH with x unless x is bytes, but had type(x)={type(x)}.')
 
 
-# def cpa_pke_keygen() -> bytes:
-#     """
-#     Key generation for the Kyber CPA PKE scheme.
-#
-#     Works by:
-#         1) Sample a random seed d, then hashing d to two new seeds, rho and sigma.
-#         2) Feed rho into the XOF to expand out to the matrix A_hat.
-#         3) Sample s_hat and e_hat with the CBD_eta function
-#         4) Set t_hat = A_hat * s_hat + e_hat
-#         5) The secret key is s_hat (encoded) and the public key is rho and t_hat (encoded).
-#     """
-#     d: bytes = int2bytes(x=randbits(SEED_LEN*8), length=SEED_LEN)
-#     rho: bytes  # for typing
-#     sigma: bytes  # for typing
-#     rho_and_sigma: bytes = hash_g(d)
-#     # assert len(rho_and_sigma) == 2 * SEED_LEN
-#     rho: bytes = rho_and_sigma[:len(rho_and_sigma) // 2]
-#     sigma: bytes = rho_and_sigma[len(rho_and_sigma) // 2:]
-#     index: int = 0
-#
-#     # Make A_hat
-#     a_hat_vals: list[list[list[int]]] = []
-#     for i in range(K):
-#         a_hat_vals += [[]]
-#         for j in range(K):
-#             next_xof_input: bytes = rho + int2bytes(x=j) + int2bytes(x=i)  # first j, then i
-#             a_hat_vals[-1] += parse(xof(next_xof_input))
-#     a_hat: PolyNTT = PolyNTT(vals=a_hat_vals)
-#
-#     # Make s_hat
-#     s_vals: list[list[list[int]]] = []
-#     for _ in range(K):
-#         s_vals += [[]]
-#         next_x: bytes = sigma + int2bytes(x=index)
-#         s_vals[-1] += [cbd_eta(x=prf(x=next_x))]
-#         index += 1
-#     s_hat: PolyNTT = PolyNTT(vals=s_vals)
-#
-#     # Make e_hat
-#     e_vals: list[list[list[int]]] = []
-#     for _ in range(K):
-#         e_vals += [[]]
-#         next_x: bytes = sigma + int2bytes(x=index)
-#         e_vals[-1] += [cbd_eta(x=next_x)]
-#         index += 1
-#     e_hat: PolyNTT = PolyNTT(vals=e_vals)
-#
-#     # Make t_hat
-#     t_hat: PolyNTT = a_hat * s_hat + e_hat
-#
-#     pk: bytes = encode_m(x=t_hat, m=ENCODED_CPA_PKE_PK_LEN) + rho
-#     sk: bytes = encode_m(x=s_hat, m=ENCODED_CPA_PKE_SK_LEN)
-#     return pk + sk
-#
-#
-# def _cpa_pke_enc(pk: bytes, plaintext: bytes, randomness: bytes) -> bytes:
-#     index: int = 0  # this is N in the specs, but we already used capital N for degree n
-#     encoded_t_hat: bytes = pk[:K]
-#     rho: bytes = pk[K:]
-#     t_hat: PolyNTT = decode_m(x=encoded_t_hat, m=ENCODED_CPA_PKE_PK_LEN)
-#     t_hat_transpose: PolyNTT = transpose(x=t_hat)
-#
-#     a_hat_transpose_vals: list[list[list[int]]] = []
-#     for i in range(K):
-#         a_hat_transpose_vals += [[]]
-#         for j in range(K):
-#             next_xof_input: bytes = rho + int2bytes(x=i) + int2bytes(x=i)  # first i, then j
-#             a_hat_transpose_vals[-1] += [parse(xof(next_xof_input))]
-#     a_hat_transpose: PolyNTT = PolyNTT(vals=a_hat_transpose_vals)
-#
-#     r_vals: list[list[list[int]]] = []
-#     for _ in range(K):
-#         r_vals += [[]]
-#         next_prf_input: bytes = randomness + int2bytes(x=index)
-#         r_vals[-1] += [cbd_eta(x=prf(next_prf_input))]
-#         index += 1
-#     r: PolyCoefs = PolyCoefs(vals=r_vals)
-#
-#     e_one_vals: list[list[list[int]]] = []
-#     for _ in range(K):
-#         e_one_vals += [[]]
-#         next_prf_input: bytes = randomness + int2bytes(x=index)
-#         e_one_vals[-1] += [cbd_eta(x=prf(next_prf_input))]
-#         index += 1
-#     e_one: PolyCoefs = PolyCoefs(vals=e_one_vals)
-#
-#     e_two_vals: list[list[list[int]]] = []
-#     next_prf_input: bytes = randomness + int2bytes(x=index)
-#     e_two_vals += [[cbd_eta(x=prf(next_prf_input))]]
-#     e_two: PolyCoefs = PolyCoefs(vals=e_two_vals)
-#
-#     r_hat: PolyNTT = ntt(x=r)
-#     partial_u_hat: PolyNTT = a_hat_transpose * r_hat
-#     u: PolyCoefs = ntt(x=partial_u_hat) + e_one
-#     partial_v_hat: PolyNTT = t_hat_transpose * r_hat
-#     partial_v: PolyCoefs = ntt(x=partial_v_hat)
-#     partial_v += e_two
-#     decoded_msg: PolyCoefs = decode_m(x=plaintext, m=1)
-#     decompressed_decoded_msg: PolyCoefs = decompress(x=decoded_msg, d=1)
-#     v: PolyCoefs = partial_v + decompressed_decoded_msg
-#
-#     compressed_u: PolyCoefs = compress(x=u, d=D_U)
-#     encoded_compressed_u: bytes = encode_m(x=compressed_u, m=D_U)
-#
-#     compressed_v: PolyCoefs = compress(x=v, d=D_V)
-#     encoded_compressed_v: bytes = encode_m(x=compressed_v, m=D_V)
-#
-#     return encoded_compressed_u + encoded_compressed_v
-#
-#
-# def cpa_pke_encrypt(pk: bytes, plaintext: bytes, r: bytes) -> bytes:
-#     """
-#     Encryption for the Kyber CPA PKE scheme.
-#
-#     Works by:
-#         1) Parsing the input pk to get t_hat and rho, and transposing t_hat
-#         2) Expanding rho to A_hat and then computing the transpose A_hat_transpose
-#         3) Sampling a random r and e_one with the CBD_eta function
-#         4) Sampling a polynomial e_two with the CBD_eta function.
-#         5) Computing u = A_transpose * r + e_1, then compressing and encoding u
-#         6) Compute v = t_hat_transpose * r + e_2 + Decompress(Decode(plaintext)), then compressing and encoding v.
-#         7) The ciphertext is encode(compress(u)) + encode(compress(v))
-#
-#     :params pk: Input encoded public key.
-#     :type pk: bytes
-#     :params plaintext: Input plaintext.
-#     :type plaintext: bytes
-#     :params: r: Input randomness
-#     :type r: bytes
-#
-#     :return: Ciphertext
-#     :rtype: bytes
-#     """
-#     if isinstance(pk, bytes) and len(pk) >= CPA_PKE_PK_LEN and \
-#             isinstance(plaintext, bytes) and len(plaintext) >= SEED_LEN and \
-#             isinstance(r, bytes) and len(r) >= SEED_LEN:
-#         return _cpa_pke_enc(pk=pk, plaintext=plaintext, randomness=r)
-#     raise ValueError(
-#         f'Cannot cpa_pke_encrypt pk, plaintext, r unless pk is bytes with len(pk) >= {ENCODED_CPA_PKE_PK_LEN} ' +
-#         f'and plaintext is bytes with len(m) >= {SEED_LEN} and r is bytes len(r) >= {SEED_LEN}, but had ' +
-#         f'(type(pk), len(pk), type(plaintext), len(plaintext), type(r), len(r))=' +
-#         f'{(type(pk), len(pk), type(plaintext), len(plaintext), type(r), len(r))}.')
-#
-#
-# def _cpa_pke_dec(sk: bytes, ciphertext: bytes) -> bytes:
-#     encoded_c_one: bytes = ciphertext[:CPA_PKE_FIRST_CIPHERTEXT_LEN]
-#     encoded_c_two: bytes = ciphertext[CPA_PKE_FIRST_CIPHERTEXT_LEN:]
-#     c_one: PolyCoefs = decode_m(x=encoded_c_one, m=D_U)
-#     u: PolyCoefs = decompress(x=c_one, d=D_U)
-#     u_hat: PolyNTT = ntt(x=u)
-#     c_two: PolyCoefs = decode_m(x=encoded_c_two, m=D_V)
-#     v: PolyCoefs = decompress(x=c_two, d=D_V)
-#     s_hat: PolyNTT = decode_m(x=sk, m=ENCODED_CPA_PKE_SK_LEN)
-#     s_hat_dot_u_hat: PolyNTT = transpose(x=s_hat) * u_hat
-#     s_dot_u: PolyCoefs = ntt(x=s_hat_dot_u_hat)
-#     compressed_decoded_msg: PolyCoefs = v - s_dot_u
-#     decoded_msg: PolyCoefs = decompress(x=compressed_decoded_msg, d=1)
-#     msg: bytes = encode_m(x=decoded_msg, m=1)
-#     return msg
-#
-#
+def cpa_pke_keygen() -> bytes:
+    """
+    Key generation for the Kyber CPA PKE scheme.
+
+    Works by:
+        1) Sample a random seed d, then hashing d to two new seeds, rho and sigma.
+        2) Feed rho into the XOF to expand out to the matrix A_hat.
+        3) Sample s_hat and e_hat with the CBD_eta function
+        4) Set t_hat = A_hat * s_hat + e_hat
+        5) The secret key is s_hat (encoded) and the public key is rho and t_hat (encoded).
+    """
+    d: bytes = (randbits(SEED_LEN_IN_BYTES * 8)).to_bytes(length=SEED_LEN_IN_BYTES, byteorder='big')
+    rho: bytes  # for typing
+    sigma: bytes  # for typing
+    rho_and_sigma: bytes = hash_g(d)
+    # assert len(rho_and_sigma) == 2 * SEED_LEN
+    rho: bytes = rho_and_sigma[:SEED_LEN_IN_BYTES]
+    sigma: bytes = rho_and_sigma[SEED_LEN_IN_BYTES:]
+    index: int = 0
+
+    # Make A_hat
+    a_hat_vals: list[list[list[int]]] = []
+    for i in range(K):
+        a_hat_vals += [[]]
+        for j in range(K):
+            next_xof_input: bytes = rho + j.to_bytes(length=1, byteorder='big') + i.to_bytes(length=1, byteorder='big')
+            a_hat_vals[-1] += [parse(xof(next_xof_input))]
+    a_hat: PolyNTT = PolyNTT(vals=a_hat_vals, k1=K, k2=K)
+
+    # Make s_hat
+    s_vals: list[list[list[int]]] = []
+    for _ in range(K):
+        s_vals += [[]]
+        next_x: bytes = sigma + index.to_bytes(length=1, byteorder='big')
+        s_vals[-1] += [cbd_eta(x=prf(x=next_x))]
+        index += 1
+    s_hat: PolyNTT = PolyNTT(vals=s_vals)
+
+    # Make e_hat
+    e_vals: list[list[list[int]]] = []
+    for _ in range(K):
+        e_vals += [[]]
+        next_x: bytes = sigma + index.to_bytes(length=1, byteorder='big')
+        e_vals[-1] += [cbd_eta(x=next_x)]
+        index += 1
+    e_hat: PolyNTT = PolyNTT(vals=e_vals)
+
+    # Make t_hat
+    t_hat: PolyNTT = (a_hat * s_hat + e_hat) % Q
+
+    encoded_t_hat: tuple[bytes, int, int, int, int, bool] = encode_m(x=t_hat, bits_per_int=LOG_Q)
+    pk: bytes = encoded_t_hat[0] + rho
+
+    encoded_s_hat: tuple[bytes, int, int, int, int, bool] = encode_m(x=s_hat, bits_per_int=LOG_Q)
+    sk: bytes = encoded_s_hat[0]
+    return pk + sk
+
+
+def _cpa_pke_enc(pk: bytes, plaintext: bytes, randomness: bytes) -> bytes:
+    index: int = 0  # this is N in the specs, but we already used capital N for degree n
+    encoded_t_hat: bytes = pk[:-SEED_LEN_IN_BYTES]  # split encoded_t_hat from the pk
+    rho: bytes = pk[-SEED_LEN_IN_BYTES:]  # split seed from the pk
+    t_hat = decode_m(x=encoded_t_hat, bits_per_int=LOG_Q, ntt_matrix_flag=True)
+    t_hat_transpose: PolyNTT = transpose(x=t_hat)
+
+    a_hat_transpose_vals: list[list[list[int]]] = []
+    for i in range(K):
+        a_hat_transpose_vals += [[]]
+        for j in range(K):
+            next_xof_input: bytes = rho + i.to_bytes(length=1, byteorder='big') + j.to_bytes(length=1, byteorder='big')
+            a_hat_transpose_vals[-1] += [parse(xof(next_xof_input))]
+    a_hat_transpose: PolyNTT = PolyNTT(vals=a_hat_transpose_vals, k1=K, k2=K)
+
+    r_vals: list[list[list[int]]] = []
+    for _ in range(K):
+        r_vals += [[]]
+        next_prf_input: bytes = randomness + index.to_bytes(length=1, byteorder='big')
+        r_vals[-1] += [cbd_eta(x=prf(next_prf_input))]
+        index += 1
+    r: PolyCoefs = PolyCoefs(vals=r_vals)
+
+    e_one_vals: list[list[list[int]]] = []
+    for _ in range(K):
+        e_one_vals += [[]]
+        next_prf_input: bytes = randomness + index.to_bytes(length=1, byteorder='big')
+        e_one_vals[-1] += [cbd_eta(x=prf(next_prf_input))]
+        index += 1
+    e_one: PolyCoefs = PolyCoefs(vals=e_one_vals)
+
+    e_two_vals: list[list[list[int]]] = []
+    next_prf_input: bytes = randomness + index.to_bytes(length=1, byteorder='big')
+    e_two_vals += [[cbd_eta(x=prf(next_prf_input))]]
+    e_two: PolyCoefs = PolyCoefs(vals=e_two_vals, k1=1, k2=1)
+
+    r_hat: PolyNTT = ntt(x=r)
+    partial_u_hat: PolyNTT = a_hat_transpose * r_hat
+    u: PolyCoefs = ntt(x=partial_u_hat) + e_one
+    partial_v_hat: PolyNTT = t_hat_transpose * r_hat
+    partial_v: PolyCoefs = ntt(x=partial_v_hat)
+    partial_v += e_two
+    decoded_msg: PolyCoefs = decode_m(x=plaintext, bits_per_int=1, k1=1, k2=1, n=N, coef_matrix_flag=True)
+    decompressed_decoded_msg: PolyCoefs = decompress(x=decoded_msg, d=1)
+    v: PolyCoefs = partial_v + decompressed_decoded_msg
+
+    compressed_u: PolyCoefs = compress(x=u, d=D_U)
+    encoded_compressed_u_full: tuple[bytes, int, int, int, int, bool] = encode_m(x=compressed_u, bits_per_int=D_U)
+    encoded_compressed_u: bytes = encoded_compressed_u_full[0]
+
+    compressed_v: PolyCoefs = compress(x=v, d=D_V)
+    encoded_compressed_v_full: tuple[bytes, int, int, int, int, bool] = encode_m(x=compressed_v, bits_per_int=D_V)
+    encoded_compressed_v: bytes = encoded_compressed_v_full[0]
+
+    return encoded_compressed_u + encoded_compressed_v
+
+
+def cpa_pke_encrypt(pk: bytes, plaintext: bytes, r: bytes) -> bytes:
+    """
+    Encryption for the Kyber CPA PKE scheme.
+
+    Works by:
+        1) Parsing the input pk to get t_hat and rho, and transposing t_hat
+        2) Expanding rho to A_hat and then computing the transpose A_hat_transpose
+        3) Sampling a random r and e_one with the CBD_eta function
+        4) Sampling a polynomial e_two with the CBD_eta function.
+        5) Computing u = A_transpose * r + e_1, then compressing and encoding u
+        6) Compute v = t_hat_transpose * r + e_2 + Decompress(Decode(plaintext)), then compressing and encoding v.
+        7) The ciphertext is encode(compress(u)) + encode(compress(v))
+
+    :params pk: Input encoded public key.
+    :type pk: bytes
+    :params plaintext: Input plaintext.
+    :type plaintext: bytes
+    :params: r: Input randomness
+    :type r: bytes
+
+    :return: Ciphertext
+    :rtype: bytes
+    """
+    if isinstance(pk, bytes) and len(pk) >= CPA_PKE_PK_LEN and \
+            isinstance(plaintext, bytes) and len(plaintext) >= SEED_LEN and \
+            isinstance(r, bytes) and len(r) >= SEED_LEN:
+        return _cpa_pke_enc(pk=pk, plaintext=plaintext, randomness=r)
+    raise ValueError(
+        f'Cannot cpa_pke_encrypt pk, plaintext, r unless pk is bytes with len(pk) >= {CPA_PKE_PK_LEN} ' +
+        f'and plaintext is bytes with len(m) >= {SEED_LEN_IN_BYTES} and r is bytes len(r) >= {SEED_LEN_IN_BYTES}, but had ' +
+        f'(type(pk), len(pk), type(plaintext), len(plaintext), type(r), len(r))=' +
+        f'{(type(pk), len(pk), type(plaintext), len(plaintext), type(r), len(r))}.')
+
+
+def _cpa_pke_dec(sk: bytes, ciphertext: bytes) -> bytes:
+    encoded_c_one: bytes = ciphertext[:CPA_PKE_FIRST_CIPHERTEXT_LEN]  # first CPA_PKE_FIRST_CIPHERTEXT_LEN bytes
+    encoded_c_two: bytes = ciphertext[CPA_PKE_FIRST_CIPHERTEXT_LEN:]  # next CPA_PKE_SECOND_CIPHERTEXT_LEN bytes
+    c_one: PolyCoefs = decode_m(x=encoded_c_one, bits_per_int=D_U, coef_matrix_flag=True)
+    u: PolyCoefs = decompress(x=c_one, d=D_U)
+    u_hat: PolyNTT = ntt(x=u)
+    c_two: PolyCoefs = decode_m(x=encoded_c_two, bits_per_int=D_V, coef_matrix_flag=True, k1=1, k2=1)
+    v: PolyCoefs = decompress(x=c_two, d=D_V)
+    s_hat: PolyNTT = decode_m(x=sk, bits_per_int=LOG_Q, ntt_matrix_flag=True)
+
+    decoded_msg: PolyCoefs = compress(x=v - ntt(x=transpose(x=s_hat) * u_hat), d=1)
+    msg_full: tuple[bytes, int, int, int, int, bool] = encode_m(x=decoded_msg, bits_per_int=1)
+    msg: bytes = msg_full[0]
+    return msg
+
+
 # def cpa_pke_decrypt(sk: bytes, ciphertext: bytes) -> bytes:
 #     """
 #     Decryption for the Kyber CPA PKE scheme.
