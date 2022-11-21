@@ -1,4 +1,4 @@
-from crystals.kyber import SEED_LEN_IN_BYTES, Q, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, _reduce, reduce, _round_up, round_up, N, LOG_Q, _our_parse_one, _our_parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _should_compress_many, compress, decompress, _encode_m_list_of_ints_to_bytes, _encode_m_many, encode_m, _decode_m_list_of_ints_from_bytes, decode_m, cpa_pke_keygen, CPA_PKE_SK_LEN, CPA_PKE_PK_LEN, CPA_PKE_CIPHERTEXT_LEN, _cpa_pke_enc, _encode_m_matrix, _cpa_pke_dec, _ntt_one, ntt
+from crystals.kyber import SEED_LEN_IN_BYTES, Q, bit_rev, is_pow_two, _bit_rev_cp, bit_rev_cp, reduce, _round_up, round_up, N, LOG_Q, _our_parse_one, _our_parse_many, K, parse, is_arithmetic_legal, PolyCoefs, PolyNTT, _cbd_eta, cbd_eta, _cbd_polycoefs, cbd_polycoefs, _compress_one_int, _decompress_one_int, _should_compress_many, compress, decompress, _encode_m_list_of_ints_to_bytes, _encode_m_many, encode_m, _decode_m_list_of_ints_from_bytes, cpa_pke_keygen, CPA_PKE_SK_LEN, CPA_PKE_PK_LEN, CPA_PKE_CIPHERTEXT_LEN, _cpa_pke_enc, _encode_m_matrix, _cpa_pke_dec, _ntt_one, ntt, make_zetas_and_invs
 from random import getrandbits, randrange
 import pytest
 from math import ceil, log2
@@ -33,7 +33,6 @@ def test_bit_rev():
     with pytest.raises(ValueError):
         bit_rev(x=7, length_in_bits=2)
 
-    length_in_bytes = max(1, ceil(LOG_SAMPLE_SIZE/8))
     for i in range(SAMPLE_SIZE):
         reversed_i = bit_rev(x=i, length_in_bits=LOG_SAMPLE_SIZE)
         i_as_bits = bin(i)[2:].zfill(LOG_SAMPLE_SIZE)
@@ -92,6 +91,7 @@ def test_bit_rev_cp_failures():
 
     with pytest.raises(ValueError):
         bit_rev_cp(x=list(range(8)), length_in_bits=4)
+
 
 @pytest.mark.parametrize("x,expected_output", BIT_REV_CP_CASES)
 def test_bit_rev_cp_full(x, expected_output):
@@ -200,7 +200,7 @@ def test_parse():
 
 
 def test_is_arithmetic_legal():
-    assert is_arithmetic_legal(a_vals = [[[]]], b_vals=[[[]]], q_a=17, q_b=17)
+    assert is_arithmetic_legal(a_vals=[[[]]], b_vals=[[[]]], q_a=17, q_b=17)
     assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[]]], q_a=17, q_b=17)
     assert not is_arithmetic_legal(a_vals=[[[1]]], b_vals=[[[1]]], q_a=17, q_b=19)
 
@@ -211,21 +211,29 @@ def test_add():
 
 
 def test_polynomial_mul():
-    identity_matrix_coefs: list[list[list[int]]] = [[[0] * N] * 1] * 1
+    q = 17
+    n = 2
+    log_n = 1
+    k1 = 1
+    k2 = 1
+    zetas: list[int]
+    zeta_inverses: list[int]
+    zetas, zeta_inverses = make_zetas_and_invs(q=q, n=n, lgn=log_n)
+    identity_matrix_coefs: list[list[list[int]]] = [[[0] * n] * k2] * k1
     identity_matrix_coefs[0][0][0] = 1
-    identity_matrix: PolyCoefs = PolyCoefs(vals=identity_matrix_coefs, q=Q, n=N, k1=1, k2=1)
-    identity_matrix_ntt: PolyNTT = ntt(identity_matrix)
-    assert len(identity_matrix_ntt.vals) == 1
-    assert len(identity_matrix_ntt.vals[0]) == 1
-    assert len(identity_matrix_ntt.vals[0][0]) == N
+    identity_matrix: PolyCoefs = PolyCoefs(vals=identity_matrix_coefs, q=q, n=n, k1=k1, k2=k1, zetas=zetas, zeta_inverses=zeta_inverses)
+    identity_matrix_ntt: PolyNTT = ntt(x=identity_matrix, q=q, n=n, log_n=log_n, half_q=q//2)
+    assert len(identity_matrix_ntt.vals) == k1
+    assert len(identity_matrix_ntt.vals[0]) == k2
+    assert len(identity_matrix_ntt.vals[0][0]) == n
     assert all(z == 1 for x in identity_matrix_ntt.vals for y in x for z in y)
 
-    new_random_matrix_coefs: list[list[list[int]]] = [[[randrange(Q) for _ in range(N)]]]
-    new_random_matrix: PolyCoefs = PolyCoefs(vals=new_random_matrix_coefs, q=Q, n=N, k1=1, k2=1)
-    new_random_matrix_ntt: PolyNTT = ntt(new_random_matrix)
-    assert len(new_random_matrix_ntt.vals) == 1
-    assert len(new_random_matrix_ntt.vals[0]) == 1
-    assert len(new_random_matrix_ntt.vals[0][0]) == N
+    new_random_matrix_coefs: list[list[list[int]]] = [[[randrange(q) for l in range(n)] for j in range(k2)] for i in range(k1)]
+    new_random_matrix: PolyCoefs = PolyCoefs(vals=new_random_matrix_coefs, q=q, n=n, k1=k1, k2=k2, zetas=zetas, zeta_inverses=zeta_inverses)
+    new_random_matrix_ntt: PolyNTT = ntt(x=new_random_matrix, q=q, n=n, log_n=log_n, half_q=q//2)
+    assert len(new_random_matrix_ntt.vals) == k1
+    assert len(new_random_matrix_ntt.vals[0]) == k2
+    assert len(new_random_matrix_ntt.vals[0][0]) == n
 
     with pytest.raises(NotImplementedError):
         new_random_matrix * identity_matrix
@@ -236,94 +244,183 @@ def test_polynomial_mul():
 
     id_times_new_ntt: PolyNTT = identity_matrix_ntt * new_random_matrix_ntt
     new_times_id_ntt: PolyNTT = new_random_matrix_ntt * identity_matrix_ntt
-    id_times_new: PolyCoefs = ntt(id_times_new_ntt)
-    new_times_id: PolyCoefs = ntt(new_times_id_ntt)
+    id_times_new: PolyCoefs = ntt(id_times_new_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
+    new_times_id: PolyCoefs = ntt(new_times_id_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
 
-    assert id_times_new.q == new_times_id.q == new_random_matrix.q == Q
-    assert id_times_new.k1 == new_times_id.k1 == new_random_matrix.k1 == 1
-    assert id_times_new.k2 == new_times_id.k2 == new_random_matrix.k2 == 1
-    for i in range(1):
-        for j in range(1):
-            for l in range(N):
-                assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % Q == 0
+    assert id_times_new.q == new_times_id.q == new_random_matrix.q == q
+    assert id_times_new.k1 == new_times_id.k1 == new_random_matrix.k1 == k1
+    assert id_times_new.k2 == new_times_id.k2 == new_random_matrix.k2 == k2
+    for i in range(k1):
+        for j in range(k2):
+            for l in range(n):
+                assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % q == 0
     assert id_times_new == new_random_matrix
     assert new_times_id == new_random_matrix
 
+    left_k1 = 3
+    left_k2 = 2
+    left_matrix_coefs: list[list[list[int]]] = [[[0 for k in range(n)] for j in range(left_k2)] for i in range(left_k1)]  # 3x2 matrix
+    for i in range(left_k1):
+        for j in range(left_k2):
+            for k in range(n):
+                left_matrix_coefs[i][j][k] = randrange(q)
+    left_matrix: PolyCoefs = PolyCoefs(vals=left_matrix_coefs, q=q, n=n, k1=left_k1, k2=left_k2)  # 3x2 matrix
 
+    a_poly = left_matrix_coefs[0][0]
+    b_poly = left_matrix_coefs[0][1]
+    c_poly = left_matrix_coefs[1][0]
+    d_poly = left_matrix_coefs[1][1]
+    e_poly = left_matrix_coefs[2][0]
+    f_poly = left_matrix_coefs[2][1]
 
-    identity_matrix_coefs: list[list[list[int]]] = [[[0] * N] * K] * K
-    for i in range(K):
-        for j in range(K):
-            if i == j:
-                identity_matrix_coefs[i][j][0] = 1
-    identity_matrix: PolyCoefs = PolyCoefs(vals=identity_matrix_coefs, q=Q, n=N, k1=K, k2=K)
-    identity_matrix_ntt: PolyNTT = ntt(identity_matrix)
-    assert len(identity_matrix_ntt.vals) == K
-    assert all(len(x) == K for x in identity_matrix_ntt.vals)
-    assert all(len(y) == N for x in identity_matrix_ntt.vals for y in x)
-    assert all(z == 1 for x in identity_matrix_ntt.vals for y in x for z in y)
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[0][0], a_poly))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[0][1], b_poly))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[1][0], c_poly))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[1][1], d_poly))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[2][0], e_poly))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix.vals[2][1], f_poly))
 
-    new_random_matrix_coefs: list[list[list[int]]] = [[[randrange(Q) for l in range(N)] for j in range(K)] for i in range(K)]
-    new_random_matrix: PolyCoefs = PolyCoefs(vals=new_random_matrix_coefs, q=Q, n=N, k1=K, k2=K)
-    new_random_matrix_ntt: PolyNTT = ntt(new_random_matrix)
-    assert len(new_random_matrix_ntt.vals) == K
-    assert len(new_random_matrix_ntt.vals[0]) == K
-    assert len(new_random_matrix_ntt.vals[0][0]) == N
+    a_poly_ntt = _ntt_one(x=a_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    b_poly_ntt = _ntt_one(x=b_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    c_poly_ntt = _ntt_one(x=c_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    d_poly_ntt = _ntt_one(x=d_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    e_poly_ntt = _ntt_one(x=e_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    f_poly_ntt = _ntt_one(x=f_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
 
-    with pytest.raises(NotImplementedError):
-        new_random_matrix * identity_matrix
-    with pytest.raises(NotImplementedError):
-        new_random_matrix * identity_matrix_ntt
-    with pytest.raises(NotImplementedError):
-        new_random_matrix_ntt * identity_matrix
+    a_poly_intt_of_ntt = _ntt_one(x=a_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    b_poly_intt_of_ntt = _ntt_one(x=b_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    c_poly_intt_of_ntt = _ntt_one(x=c_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    d_poly_intt_of_ntt = _ntt_one(x=d_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    e_poly_intt_of_ntt = _ntt_one(x=e_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    f_poly_intt_of_ntt = _ntt_one(x=f_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
 
-    id_times_new_ntt: PolyNTT = identity_matrix_ntt * new_random_matrix_ntt
-    new_times_id_ntt: PolyNTT = new_random_matrix_ntt * identity_matrix_ntt
-    id_times_new: PolyCoefs = ntt(id_times_new_ntt)
-    new_times_id: PolyCoefs = ntt(new_times_id_ntt)
+    assert all((x-y) % q == 0 for x, y in zip(a_poly_intt_of_ntt, a_poly))
+    assert all((x-y) % q == 0 for x, y in zip(b_poly_intt_of_ntt, b_poly))
+    assert all((x-y) % q == 0 for x, y in zip(c_poly_intt_of_ntt, c_poly))
+    assert all((x-y) % q == 0 for x, y in zip(d_poly_intt_of_ntt, d_poly))
+    assert all((x-y) % q == 0 for x, y in zip(e_poly_intt_of_ntt, e_poly))
+    assert all((x-y) % q == 0 for x, y in zip(f_poly_intt_of_ntt, f_poly))
 
-    assert id_times_new.q == new_times_id.q == new_random_matrix.q == Q
-    assert id_times_new.k1 == new_times_id.k1 == new_random_matrix.k1 == K
-    assert id_times_new.k2 == new_times_id.k2 == new_random_matrix.k2 == K
-    for i in range(K):
-        for j in range(K):
-            for l in range(N):
-                assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % Q == 0
-    assert id_times_new == new_random_matrix
-    assert new_times_id == new_random_matrix
+    left_matrix_ntt: PolyNTT = ntt(x=left_matrix, q=q, n=n, log_n=log_n, half_q=q//2)
 
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[0][0], a_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[0][1], b_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[1][0], c_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[1][1], d_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[2][0], e_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(left_matrix_ntt.vals[2][1], f_poly_ntt))
 
-#
-# # @pytest.mark.skip
-# def test_polynomial_mul_small_without_const_time(one_without_const_time,
-#                                                  pairs_of_random_polys_and_their_products_without_const_time):
-#     lp = lp_for_testing
-#     # First, let's make an identity polynomials and add it to itself
-#     assert one_without_const_time * one_without_const_time == one_without_const_time
-#
-#     # Now let's do some addition with some random linear polynomials (AND the unity)
-#     for next_item in pairs_of_random_polys_and_their_products_without_const_time:
-#         f_dat, g_dat, expected_h_dat, observed_h_dat = next_item
-#         a_f, b_f, f = f_dat
-#         a_g, b_g, g = g_dat
-#         a_h, b_h, c_h, exp_h, exp_h_norm, exp_h_wt = expected_h_dat
-#         obs_h_coefs, obs_h, obs_h_norm, obs_h_wt = observed_h_dat
-#         assert one_without_const_time * f == f
-#         assert f * one_without_const_time == f
-#         assert one_without_const_time * g == g
-#         assert g * one_without_const_time == g
-#         assert f * g == exp_h == obs_h
-#         assert len(obs_h_coefs) == 3
-#         assert 0 in obs_h_coefs
-#         assert 1 in obs_h_coefs
-#         assert 2 in obs_h_coefs
-#         assert (obs_h_coefs[0] - a_h) % lp.modulus == 0
-#         assert (obs_h_coefs[1] - b_h) % lp.modulus == 0
-#         assert (obs_h_coefs[2] - c_h) % lp.modulus == 0
-#         assert (a_f * a_g - a_h) % lp.modulus == 0
-#         assert (a_f * b_g + b_f * a_g - b_h) % lp.modulus == 0
-#         assert (b_f * b_g - c_h) % lp.modulus == 0
-#
+    left_matrix_ntt_manual: PolyNTT = PolyNTT(vals=[[a_poly_ntt, b_poly_ntt], [c_poly_ntt, d_poly_ntt], [e_poly_ntt, f_poly_ntt]], q=q, n=n, k1=left_k1, k2=left_k2, zetas=zetas, zeta_inverses=zeta_inverses)
+    assert left_matrix_ntt == left_matrix_ntt_manual
+
+    left_matrix_intt_of_ntt: PolyCoefs = ntt(x=left_matrix_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
+    assert left_matrix_intt_of_ntt == left_matrix
+
+    right_k1 = 2
+    right_k2 = 2
+    right_matrix_coefs: list[list[list[int]]] = [[[0 for k in range(n)] for j in range(right_k2)] for i in range(right_k1)]  # 3x2 matrix
+    for i in range(right_k1):
+        for j in range(right_k2):
+            for k in range(n):
+                right_matrix_coefs[i][j][k] = randrange(q)
+    right_matrix: PolyCoefs = PolyCoefs(vals=right_matrix_coefs, q=q, n=n, k1=right_k1, k2=right_k2)  # 3x2 matrix
+
+    g_poly = right_matrix_coefs[0][0]
+    h_poly = right_matrix_coefs[0][1]
+    i_poly = right_matrix_coefs[1][0]
+    j_poly = right_matrix_coefs[1][1]
+
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix.vals[0][0], g_poly))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix.vals[0][1], h_poly))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix.vals[1][0], i_poly))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix.vals[1][1], j_poly))
+
+    g_poly_ntt = _ntt_one(x=g_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    h_poly_ntt = _ntt_one(x=h_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    i_poly_ntt = _ntt_one(x=i_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+    j_poly_ntt = _ntt_one(x=j_poly, q=q, n=n, log_n=log_n, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=False)
+
+    g_poly_intt_of_ntt = _ntt_one(x=g_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    h_poly_intt_of_ntt = _ntt_one(x=h_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    i_poly_intt_of_ntt = _ntt_one(x=i_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+    j_poly_intt_of_ntt = _ntt_one(x=j_poly_ntt, q=q, n=n, log_n=log_n, half_q=q // 2, zetas=zetas, zeta_inverses=zeta_inverses, inv_flag=True)
+
+    assert all((x-y) % q == 0 for x, y in zip(g_poly_intt_of_ntt, g_poly))
+    assert all((x-y) % q == 0 for x, y in zip(h_poly_intt_of_ntt, h_poly))
+    assert all((x-y) % q == 0 for x, y in zip(i_poly_intt_of_ntt, i_poly))
+    assert all((x-y) % q == 0 for x, y in zip(j_poly_intt_of_ntt, j_poly))
+
+    right_matrix_ntt: PolyNTT = ntt(x=right_matrix, q=q, n=n, log_n=log_n, half_q=q//2)
+
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix_ntt.vals[0][0], g_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix_ntt.vals[0][1], h_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix_ntt.vals[1][0], i_poly_ntt))
+    assert all((x-y) % q == 0 for x, y in zip(right_matrix_ntt.vals[1][1], j_poly_ntt))
+
+    right_matrix_ntt_manual: PolyNTT = PolyNTT(vals=[[g_poly_ntt, h_poly_ntt], [i_poly_ntt, j_poly_ntt]], q=q, n=n, k1=right_k1, k2=right_k2, zetas=zetas, zeta_inverses=zeta_inverses)
+    assert right_matrix_ntt == right_matrix_ntt_manual
+
+    right_matrix_intt_of_ntt: PolyCoefs = ntt(x=right_matrix_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
+    assert right_matrix_intt_of_ntt == right_matrix
+
+    expected_k1: int = left_matrix.k1
+    expected_k2: int = right_matrix.k2
+    inner_k: int = left_matrix.k2
+    expected_product_coefs: list[list[list[int]]] = [[[0, 0] for j in range(right_matrix.k2)] for i in range(left_matrix.k1)]
+    for i in range(expected_k1):
+        for j in range(expected_k2):
+            ij_th_expected_poly = [0, 0]
+            for k in range(inner_k):
+                left_poly_const_term = left_matrix.vals[i][k][0]
+                left_poly_linear_term = left_matrix.vals[i][k][1]
+                right_poly_const_term = right_matrix.vals[k][j][0]
+                right_poly_linear_term = right_matrix.vals[k][j][1]
+                ij_th_expected_poly[0] += left_poly_const_term * right_poly_const_term - left_poly_linear_term * right_poly_linear_term
+                ij_th_expected_poly[1] += left_poly_linear_term * right_poly_const_term + left_poly_const_term * right_poly_linear_term
+            for l in range(left_matrix.n):
+                expected_product_coefs[i][j][l] = ij_th_expected_poly[l] % q
+    expected_product: PolyCoefs = PolyCoefs(vals=expected_product_coefs, q=q, n=n, k1=expected_k1, k2=expected_k2)
+    expected_product_ntt: PolyNTT = ntt(x=expected_product, q=q, n=n, log_n=log_n, half_q=q//2)
+
+    left_matrix_ntt_times_right_matrix_ntt: PolyNTT = left_matrix_ntt * right_matrix_ntt
+    assert expected_product_ntt == left_matrix_ntt_times_right_matrix_ntt
+    assert left_matrix_ntt_times_right_matrix_ntt.k1 == expected_k1
+    assert left_matrix_ntt_times_right_matrix_ntt.k2 == expected_k2
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[0][0][0] - (a_poly_ntt[0] * g_poly_ntt[0] + b_poly_ntt[0] * i_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[0][0][1] - (a_poly_ntt[1] * g_poly_ntt[1] + b_poly_ntt[1] * i_poly_ntt[1])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[0][1][0] - (a_poly_ntt[0] * h_poly_ntt[0] + b_poly_ntt[0] * j_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[0][1][1] - (a_poly_ntt[1] * h_poly_ntt[1] + b_poly_ntt[1] * j_poly_ntt[1])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[1][0][0] - (c_poly_ntt[0] * g_poly_ntt[0] + d_poly_ntt[0] * i_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[1][0][1] - (c_poly_ntt[1] * g_poly_ntt[1] + d_poly_ntt[1] * i_poly_ntt[1])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[1][1][0] - (c_poly_ntt[0] * h_poly_ntt[0] + d_poly_ntt[0] * j_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[1][1][1] - (c_poly_ntt[1] * h_poly_ntt[1] + d_poly_ntt[1] * j_poly_ntt[1])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[2][0][0] - (e_poly_ntt[0] * g_poly_ntt[0] + f_poly_ntt[0] * i_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[2][0][1] - (e_poly_ntt[1] * g_poly_ntt[1] + f_poly_ntt[1] * i_poly_ntt[1])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[2][1][0] - (e_poly_ntt[0] * h_poly_ntt[0] + f_poly_ntt[0] * j_poly_ntt[0])) % q == 0
+    assert (left_matrix_ntt_times_right_matrix_ntt.vals[2][1][1] - (e_poly_ntt[1] * h_poly_ntt[1] + f_poly_ntt[1] * j_poly_ntt[1])) % q == 0
+
+    intt_of_left_matrix_ntt_times_right_matrix_ntt: PolyCoefs = ntt(x=left_matrix_ntt_times_right_matrix_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
+
+    expected_coefs: list[list[list[int]]] = [[[0 for k in range(n)] for j in range(expected_k2)] for i in range(expected_k1)]  # 3x2 matrix
+    expected_coefs[0][0][0] = ((a_poly[0] * g_poly[0] - a_poly[1] * g_poly[1]) + (b_poly[0] * i_poly[0] - b_poly[1] * i_poly[1])) % q
+    expected_coefs[0][0][1] = ((a_poly[1] * g_poly[0] + a_poly[0] * g_poly[1]) + (b_poly[1] * i_poly[0] + b_poly[0] * i_poly[1])) % q
+    expected_coefs[0][1][0] = ((a_poly[0] * h_poly[0] - a_poly[1] * h_poly[1]) + (b_poly[0] * j_poly[0] - b_poly[1] * j_poly[1])) % q
+    expected_coefs[0][1][1] = ((a_poly[1] * h_poly[0] + a_poly[0] * h_poly[1]) + (b_poly[1] * j_poly[0] + b_poly[0] * j_poly[1])) % q
+    expected_coefs[1][0][0] = ((c_poly[0] * g_poly[0] - c_poly[1] * g_poly[1]) + (d_poly[0] * i_poly[0] - d_poly[1] * i_poly[1])) % q
+    expected_coefs[1][0][1] = ((c_poly[1] * g_poly[0] + c_poly[0] * g_poly[1]) + (d_poly[1] * i_poly[0] + d_poly[0] * i_poly[1])) % q
+    expected_coefs[1][1][0] = ((c_poly[0] * h_poly[0] - c_poly[1] * h_poly[1]) + (d_poly[0] * j_poly[0] - d_poly[1] * j_poly[1])) % q
+    expected_coefs[1][1][1] = ((c_poly[1] * h_poly[0] + c_poly[0] * h_poly[1]) + (d_poly[1] * j_poly[0] + d_poly[0] * j_poly[1])) % q
+    expected_coefs[2][0][0] = ((e_poly[0] * g_poly[0] - e_poly[1] * g_poly[1]) + (f_poly[0] * i_poly[0] - f_poly[1] * i_poly[1])) % q
+    expected_coefs[2][0][1] = ((e_poly[1] * g_poly[0] + e_poly[0] * g_poly[1]) + (f_poly[1] * i_poly[0] + f_poly[0] * i_poly[1])) % q
+    expected_coefs[2][1][0] = ((e_poly[0] * h_poly[0] - e_poly[1] * h_poly[1]) + (f_poly[0] * j_poly[0] - f_poly[1] * j_poly[1])) % q
+    expected_coefs[2][1][1] = ((e_poly[1] * h_poly[0] + e_poly[0] * h_poly[1]) + (f_poly[1] * j_poly[0] + f_poly[0] * j_poly[1])) % q
+
+    expected: PolyCoefs = PolyCoefs(vals=expected_coefs, q=q, n=n, k1=expected_k1, k2=expected_k2)
+
+    assert all(all((x - y) % q == 0 for x, y in zip(expected.vals[i][j], intt_of_left_matrix_ntt_times_right_matrix_ntt.vals[i][j])) for i in range(expected_k1) for j in range(expected_k2))
+
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt == expected
+
 
 def test_polycoefs():
     x: PolyCoefs = PolyCoefs(q=17, n=2, k1=3, k2=2, vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]])
@@ -493,10 +590,8 @@ def test_cbd_polycoefs():
     give_me_a_negative_two: str = ''
     for _ in range(N*test_num_cols*test_num_rows):
         give_me_a_negative_two += '000011'
-    length_of_give_me_a_negative_two = len(give_me_a_negative_two)
     give_me_a_negative_two_as_ints: list[int] = [int(give_me_a_negative_two[_*8: (_+1)*8], 2) for _ in range(len(give_me_a_negative_two)//8)]
     give_me_a_negative_two_as_bytes: bytes = bytes(give_me_a_negative_two_as_ints)
-    expected_result: list[int] = [-2] * N
 
     result: PolyCoefs = _cbd_polycoefs(x=give_me_a_negative_two_as_bytes, eta=test_eta, num_rows=test_num_rows, num_cols=test_num_cols)
     assert isinstance(result, PolyCoefs)
@@ -729,7 +824,7 @@ DECOMPRESS_CASES = [
 
 @pytest.mark.parametrize("x,d,p,expected_result", DECOMPRESS_CASES)
 def test_decompress(x, d, p, expected_result):
-    decompress(x=x, d=d, p=p) == expected_result
+    assert decompress(x=x, d=d, p=p) == expected_result
 
 
 ENCODE_M_LIST_OF_INTS_CASES = [
@@ -750,13 +845,14 @@ ENCODE_M_MANY_CASES = [
 
 
 @pytest.mark.parametrize("x,m,expected_result", ENCODE_M_MANY_CASES)
-def test_encode_m_many(x,m,expected_result):
+def test_encode_m_many(x, m, expected_result):
     assert _encode_m_many(x=x, bits_per_int=m) == expected_result
 
 
+zetas, zeta_inverses = make_zetas_and_invs(q=17, n=16, lgn=4)
 ENCODE_M_MATRIX_CASES = [
-    (PolyNTT(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, False)),
-    (PolyCoefs(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, True))
+    (PolyNTT(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1, zetas=zetas, zeta_inverses=zeta_inverses), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, False)),
+    (PolyCoefs(vals=[[list(range(16))], [list(range(16))]], q=17, n=16, k1=2, k2=1, zetas=zetas, zeta_inverses=zeta_inverses), 4, (bytes([8, 76, 42, 110, 25, 93, 59, 127, 8, 76, 42, 110, 25, 93, 59, 127]), 17, 16, 2, 1, True))
 ]
 
 
@@ -943,5 +1039,4 @@ def test_cpa_pke_decrypt():
 #
 # def test_cca_kem_decapsulate():
 #     pass
-
 

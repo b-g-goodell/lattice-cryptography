@@ -22,7 +22,7 @@ Contributors
 ------------
 Brandon Goodell (lead author), Mitchell Krawiec-Thayer.
 """
-from math import ceil, floor, log2
+from math import ceil, floor, log2, sqrt
 from copy import deepcopy
 from secrets import randbits
 
@@ -349,6 +349,10 @@ class PolyCoefs(object):
             Half of modulus, rounded down.
         log_q: int
             Number of bits to describe a coefficient.
+        zetas: list[int]
+            Powers of the root of unity
+        zeta_inverses: list[int]
+            Powers of the inverse of the root of unity
         vals: list[list[list[int]]]
             2-dimensional matrix with list[int] entries, each entry is a coefficient representation of a polynomial.
         const_time_flag: bool
@@ -364,10 +368,12 @@ class PolyCoefs(object):
     k2: int = 1
     half_q: int = HALF_Q
     log_q: int = LOG_Q
+    zetas: list[int] = []
+    zeta_inverses: list[int] = []
     vals: list[list[list[int]]] = []
     const_time_flag: bool = True
 
-    def __init__(self, vals: list[list[list[int]]] | None, q: int = Q, n: int = N, k1: int = K, k2: int = 1, const_time_flag: bool = True):
+    def __init__(self, vals: list[list[list[int]]] | None, q: int = Q, n: int = N, k1: int = K, k2: int = 1, zetas: list[int] = ZETAS, zeta_inverses: list[int] = ZETA_INVERSES, const_time_flag: bool = True):
         if isinstance(q, int) and q >= 2 and isinstance(n, int) and n >= 1 and is_pow_two(x=n) and isinstance(k1, int) and k1 >= 1 and isinstance(k2, int) and k2 >= 1 and isinstance(const_time_flag, bool) and isinstance(vals, list) and all(isinstance(x, list) for x in vals) and all(isinstance(y, list) for x in vals for y in x) and all(isinstance(z, int) for x in vals for y in x for z in y) and len(vals) == k1 and all(len(x)==k2 for x in vals) and all(len(y) == n for x in vals for y in x) and (all(0 <= z < q for x in vals for y in x for z in y) or all(-q//2 <= z <= q//2 for x in vals for y in x for z in y)):
             self.q = q
             self.n = n
@@ -375,6 +381,7 @@ class PolyCoefs(object):
             self.k2 = k2
             self.half_q = q // 2
             self.log_q = ceil(log2(q))
+            self.zetas, self.zeta_inverses = make_zetas_and_invs(q=q, n=n, lgn=ceil(log2(n)))
             self.vals = vals
             self.const_time_flag = const_time_flag
         elif not isinstance(q, int):
@@ -467,6 +474,10 @@ class PolyNTT(object):
             Half of modulus, rounded down.
         log_q: int
             Number of bits to describe a coefficient.
+        zetas: list[int]
+            Powers of the root of unity
+        zeta_inverses: list[int]
+            Powers of the inverse of the root of unity
         vals: list[list[list[int]]]
             2-dimensional matrix with list[int] entries, each entry is a coefficient representation of a polynomial.
         const_time: bool
@@ -495,11 +506,12 @@ class PolyNTT(object):
     k2: int = 1
     half_q: int = HALF_Q
     log_q: int = LOG_Q
+    zetas: list[int] = []
+    zeta_inverses: list[int] = []
     vals: list[list[list[int]]] = []
     const_time_flag: bool = True
 
-    def __init__(self, vals: list[list[list[int]]] | None, q: int = Q, n: int = N, k1: int = K, k2: int = 1,
-                 const_time_flag: bool = True):
+    def __init__(self, vals: list[list[list[int]]] | None, q: int = Q, n: int = N, k1: int = K, k2: int = 1, zetas: list[int]=ZETAS, zeta_inverses: list[int]=ZETA_INVERSES, const_time_flag: bool = True):
         if isinstance(q, int) and q >= 2 and isinstance(n, int) and n >= 1 and is_pow_two(x=n) and isinstance(k1, int) and k1 >= 1 and isinstance(k2, int) and k2 >= 1 and isinstance(const_time_flag, bool) and isinstance(vals, list) and all(isinstance(x, list) for x in vals) and all(isinstance(y, list) for x in vals for y in x) and all(isinstance(z, int) for x in vals for y in x for z in y) and len(vals) == k1 and all(len(x)==k2 for x in vals) and all(len(y) == n for x in vals for y in x) and (all(0 <= z < q for x in vals for y in x for z in y) or all(-q//2 <= z <= q//2 for x in vals for y in x for z in y)):
             self.q = q
             self.n = n
@@ -507,6 +519,7 @@ class PolyNTT(object):
             self.k2 = k2
             self.half_q = q // 2
             self.log_q = ceil(log2(q))
+            self.zetas, self.zeta_inverses = make_zetas_and_invs(q=q, n=n, lgn=ceil(log2(n)))
             self.vals = vals
             self.const_time_flag = const_time_flag
         elif not isinstance(q, int):
@@ -614,14 +627,10 @@ class PolyNTT(object):
         result = deepcopy(self)
         result.k1 = self.k1
         result.k2 = other.k2
-        result.vals = []
-        # result.vals = [[[0]*len(self.vals[0][0])]*len(other.vals[0])]*len(self.vals)
-        for i in range(len(self.vals)):
-            result.vals += [[]]
-            for j in range(len(other.vals[0])):
-                result.vals[-1] += [[]]
-                for k in range(len(self.vals[0][0])):
-                    result.vals[-1][-1] += [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(len(self.vals[0]))), q=self.q)]
+        result.vals = [[[0 for k in range(self.n)] for j in range(other.k2)] for i in range(self.k1)]
+        for i in range(self.k1):
+            for j in range(other.k2):
+                result.vals[i][j] = [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(self.k2)), q=self.q) for k in range(self.n)]
         return result
 
     def __mod__(self, other):
@@ -958,16 +967,16 @@ def decode_m(x: bytes, bits_per_int: int, coef_matrix_flag: bool = False, ntt_ma
     raise ValueError(f'Cannot compute decode_m if both coef_matrix_flag and ntt_matrix_flag are True.')
 
 
-def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]:
+def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True, q: int = Q, n: int = N, log_n: int = LOG_N, half_q: int = HALF_Q, zetas: list[int] = ZETAS, zeta_inverses: list[int] = ZETA_INVERSES) -> list[int]:
     bit_rev_x: list[int] = bit_rev_cp(x=x, length_in_bits=ceil(log2(len(x))))
     m: int = 1
-    for s in range(1, LOG_N + 1):
+    for s in range(1, log_n + 1):
         m *= 2
         if inv_flag:
-            this_zeta: int = ZETA_INVERSES[s - 1]
+            this_zeta: int = zeta_inverses[s - 1]
         else:
-            this_zeta: int = ZETAS[s - 1]
-        for k in range(0, N, m):
+            this_zeta: int = zetas[s - 1]
+        for k in range(0, n, m):
             w: int = 1
             for j in range(m // 2):
                 t: int = w * bit_rev_x[k + j + m // 2]
@@ -976,38 +985,69 @@ def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True) -> list[int]
                     bit_rev_x[k + j]: int = reduce(x=u + t)
                     bit_rev_x[k + j + m // 2]: int = reduce(x=u - t)
                 else:
-                    bit_rev_x[k + j]: int = (u + t) % Q
-                    if bit_rev_x[k + j] > HALF_Q:
-                        bit_rev_x[k + j] = bit_rev_x[k + j] - Q
-                    bit_rev_x[k + j + m // 2]: int = (u - t) % Q
-                    if bit_rev_x[k + j + m // 2] > HALF_Q:
-                        bit_rev_x[k + j + m // 2] = bit_rev_x[k + j + m // 2] - Q
+                    bit_rev_x[k + j]: int = (u + t) % q
+                    if bit_rev_x[k + j] > half_q:
+                        bit_rev_x[k + j] = bit_rev_x[k + j] - q
+                    bit_rev_x[k + j + m // 2]: int = (u - t) % q
+                    if bit_rev_x[k + j + m // 2] > half_q:
+                        bit_rev_x[k + j + m // 2] = bit_rev_x[k + j + m // 2] - q
                 w *= this_zeta
     if inv_flag:
         n_inv: int = 1
-        while (n_inv * N) % Q != 1:
+        while (n_inv * n) % q != 1:
             n_inv += 1
         if const_time:
-            bit_rev_x: list[int] = [reduce(x=(n_inv * i)) for i in bit_rev_x]
+            bit_rev_x: list[int] = [reduce(x=n_inv * i, q=q) for i in bit_rev_x]
         else:
-            bit_rev_x: list[int] = [(n_inv * i) % Q for i in bit_rev_x]
-            bit_rev_x = [i if i <= HALF_Q else i - Q for i in bit_rev_x]
+            bit_rev_x: list[int] = [(n_inv * i) % q for i in bit_rev_x]
+            bit_rev_x = [i if i <= half_q else i - q for i in bit_rev_x]
+    elif const_time:
+        bit_rev_x: list[int] = [reduce(x=i, q=q) for i in bit_rev_x]
+    else:
+        bit_rev_x: list[int] = [i % q for i in bit_rev_x]
+        bit_rev_x = [i if i <= half_q else i - q for i in bit_rev_x]
     return bit_rev_x
 
 
-def _ntt_many(x: list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[list[list[int]]]:
-    return [[_ntt_one(x=z, inv_flag=inv_flag, const_time=const_time) for z in y] for y in x]
+def _ntt_many(x: list[list[list[int]]], inv_flag: bool, const_time: bool = True, q: int = Q, n: int = N, log_n: int = LOG_N, half_q: int = HALF_Q, zetas: list[int] = ZETAS, zeta_inverses: list[int] = ZETA_INVERSES) -> list[list[list[int]]]:
+    return [[_ntt_one(x=z, inv_flag=inv_flag, const_time=const_time, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses) for z in y] for y in x]
 
 
-def _ntt_raw(x: list[int] | list[list[list[int]]], inv_flag: bool, const_time: bool = True) -> list[int] | list[list[list[int]]]:
-    if isinstance(x, list) and is_pow_two(len(x)) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(isinstance(y, int) for y in x):
-        return _ntt_one(x=x, inv_flag=inv_flag, const_time=const_time)
-    elif isinstance(x, list) and all(isinstance(y, list) for y in x) and all(isinstance(z, list) for y in x for z in y) and all(isinstance(w, int) for y in x for z in y for w in z) and isinstance(inv_flag, bool) and isinstance(const_time, bool) and all(is_pow_two(len(z)) for y in x for z in y):
-        return _ntt_many(x=x, inv_flag=inv_flag, const_time=const_time)
-    raise ValueError(f'Cannot compute _ntt_raw for x, inv_flag, const_time unless x is a list of integers with power-of-two length or a list of lists of lists of integers (with the most internal of these lists having lengths that are powers-of-two), inv_flag and const_time are both bool, and x has power-of-two-length, but had (type(x), inv_flag, const_time)={(type(x), inv_flag, const_time)}.')
+def is_prime(x: int) -> bool:
+    return all([x % i != 0 for i in range(2, ceil(sqrt(x)) + 1)])
 
 
-def ntt(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
+def has_prim_rou(q: int, n: int) -> bool:
+    return q % n == 1
+
+
+def is_ntt_friendly_prime(q: int, n: int) -> bool:
+    return is_prime(q) and is_pow_two(n) and has_prim_rou(q=q, n=n)
+
+
+def get_prim_rou_and_rou_inv(q: int, n: int) -> None | tuple[int, int]:
+    if not (is_ntt_friendly_prime(q, n)):
+        raise ValueError('Input q and d are not ntt-friendly prime and degree.')
+    # If we do not raise a ValueError, then there exists a primitive root of unity 2 <= x < q.
+    x: int = 2
+    while x < q:
+        if all(x ** k % q != 1 for k in range(1, n)) and x ** n % q == 1:
+            break
+        x += 1
+    return x, ((x ** (n - 1)) % q)
+
+
+def make_zetas_and_invs(q: int, n: int, lgn: int) -> tuple[list[int], list[int]]:
+    powers: list[int] = [n // (2 ** (s + 1)) for s in range(lgn)]
+    zeta, zeta_inv = get_prim_rou_and_rou_inv(q=q, n=n)
+    left: list[int] = [int(zeta ** i) % q for i in powers]
+    left = [i if i <= q // 2 else i - q for i in left]
+    right: list[int] = [int(zeta_inv ** i) % q for i in powers]
+    right = [i if i <= q // 2 else i - q for i in right]
+    return left, right
+
+
+def ntt(x: PolyCoefs | PolyNTT, q: int = Q, n: int = N, log_n: int = LOG_N, half_q: int = HALF_Q) -> PolyCoefs | PolyNTT:
     """
     Performs the NTT and the inverse NTT, depending on input. If a PolyCoefs object is input, then the NTT of the input
     data is output. If a PolyNTT object is input, then the inverse NTT of the input data is output.
@@ -1020,9 +1060,10 @@ def ntt(x: PolyCoefs | PolyNTT) -> PolyCoefs | PolyNTT:
     :rtype: PolyCoefs | PolyNTT
     """
     if isinstance(x, PolyCoefs):
-        return PolyNTT(vals=_ntt_raw(x.vals, inv_flag=False, const_time=True), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
+        vals=_ntt_many(x.vals, inv_flag=False, const_time=x.const_time_flag, q=q, n=n, log_n=log_n, half_q=half_q, zetas=x.zetas, zeta_inverses=x.zeta_inverses)
+        return PolyNTT(vals=vals, q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
     elif isinstance(x, PolyNTT):
-        return PolyCoefs(vals=_ntt_raw(x.vals, inv_flag=True, const_time=True), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
+        return PolyCoefs(vals=_ntt_many(x.vals, inv_flag=True, const_time=x.const_time_flag, q=q, n=n, log_n=log_n, half_q=half_q, zetas=x.zetas, zeta_inverses=x.zeta_inverses), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
     raise ValueError(f'Cannot compute NTT (or inverse NTT) for x unless x is a PolyCoefs or a PolynomialNTTMatrix, but had type(x)={x}.')
 
 
