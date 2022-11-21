@@ -236,7 +236,7 @@ def test_against_nayuki():
     assert all((i-j) % q == 0 for i, j in zip(observed_intt_of_ntt, input_vector))
 
 
-def test_polynomial_mul():
+def test_identities():
     q = 17
     n = 2
     log_n = 1
@@ -282,6 +282,43 @@ def test_polynomial_mul():
                 assert (id_times_new.vals[i][j][l] - new_random_matrix.vals[i][j][l]) % q == 0
     assert id_times_new == new_random_matrix
     assert new_times_id == new_random_matrix
+
+
+def test_poly_mul():
+    # Polynomials from Z_q[X]/(X**4 + 1)
+    q = 17
+    half_q = q//2
+    n = 4
+    log_n = 2
+    zetas, zeta_inverses = make_zetas_and_invs(q=q, n=2*n, lgn=log_n+1)
+    rou = zetas[-1]
+
+    a = [randrange(q) for _ in range(n)] + [0 for _ in range(n)]  # a[0] + a[1]*X + a[2]*X**2 + a[3]*X**3
+    b = [randrange(q) for _ in range(n)] + [0 for _ in range(n)]  # b[0] + b[1]*X + b[2]*X**2 + b[3]*X**3
+    ab_full = [a[0]*b[0],
+               a[0]*b[1] + a[1]*b[0],
+               a[0]*b[2] + a[1]*b[1] + a[2]*b[0],
+               a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0],
+               a[1]*b[3] + a[2]*b[2] + a[3]*b[1],
+               a[2]*b[3] + a[3]*b[2],
+               a[3]*b[3]]  # a[0]*b[0] + (a[0]*b[1] + a[1]*b[0])*X + (a[0]*b[2] + a[1]*b[1] + a[2]*b[0])*X**2 + (a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0])*X**3 + (a[1]*b[3] + a[2]*b[2] + a[3]*b[1])*X**4 + (a[2]*b[3] + a[3]*b[2])*X**5 + a[3]*b[3]*X**6
+    ab_full += [0 for _ in range(2*n - len(ab_full))]
+
+    a_hat = _ntt_one(x=a, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    b_hat = _ntt_one(x=b, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    ab_hat = _ntt_one(x=ab_full, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+
+    coordinate_wise_a_hat_times_b_hat = [(x * y) % q if (x*y) % q <= half_q else ((x*y) % q) - q for x, y in zip(a_hat, b_hat)]
+    intt_of_coordinate_wise = _ntt_one(x=coordinate_wise_a_hat_times_b_hat, inv_flag=True, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+
+
+    assert all((x-y) % q == 0 for x, y in zip(ab_hat, coordinate_wise_a_hat_times_b_hat))
+
+def test_matrix_mul():
+    q = 17
+    n = 2
+    log_n = 1
+    zetas, zeta_inverses = make_zetas_and_invs(q=q, n=n, lgn=log_n)
 
     left_k1 = 3
     left_k2 = 2
@@ -389,26 +426,32 @@ def test_polynomial_mul():
     right_matrix_intt_of_ntt: PolyCoefs = ntt(x=right_matrix_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
     assert right_matrix_intt_of_ntt == right_matrix
 
+    expected_n: int = left_matrix.n
     expected_k1: int = left_matrix.k1
     expected_k2: int = right_matrix.k2
     inner_k: int = left_matrix.k2
     expected_product_coefs: list[list[list[int]]] = [[[0, 0] for j in range(right_matrix.k2)] for i in range(left_matrix.k1)]
+
     for i in range(expected_k1):
         for j in range(expected_k2):
-            ij_th_expected_poly = [0, 0]
-            for k in range(inner_k):
-                left_poly_const_term = left_matrix.vals[i][k][0]
-                left_poly_linear_term = left_matrix.vals[i][k][1]
-                right_poly_const_term = right_matrix.vals[k][j][0]
-                right_poly_linear_term = right_matrix.vals[k][j][1]
-                ij_th_expected_poly[0] += left_poly_const_term * right_poly_const_term - left_poly_linear_term * right_poly_linear_term
-                ij_th_expected_poly[1] += left_poly_linear_term * right_poly_const_term + left_poly_const_term * right_poly_linear_term
-            for l in range(left_matrix.n):
-                expected_product_coefs[i][j][l] = ij_th_expected_poly[l] % q
+            expected_product_coefs[i][j] = [
+                sum(left_matrix.vals[i][l][0] * right_matrix.vals[l][j][0] - left_matrix.vals[i][l][1] * right_matrix.vals[l][j][1] for l in range(inner_k)) % q,
+                sum(left_matrix.vals[i][l][1] * right_matrix.vals[l][j][0] + left_matrix.vals[i][l][0] * right_matrix.vals[l][j][1] for l in range(inner_k)) % q
+            ]
     expected_product: PolyCoefs = PolyCoefs(vals=expected_product_coefs, q=q, n=n, k1=expected_k1, k2=expected_k2)
     expected_product_ntt: PolyNTT = ntt(x=expected_product, q=q, n=n, log_n=log_n, half_q=q//2)
 
     left_matrix_ntt_times_right_matrix_ntt: PolyNTT = left_matrix_ntt * right_matrix_ntt
+    intt_of_left_matrix_ntt_times_right_matrix_ntt: PolyCoefs = ntt(x=left_matrix_ntt_times_right_matrix_ntt, q=q, n=n, log_n=log_n, half_q=q//2)
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt.k1 == expected_product.k1 == expected_k1
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt.k2 == expected_product.k2 == expected_k2
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt.n == expected_product.n == n
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt.q == expected_product.q == q
+    for row_a, row_b in zip(intt_of_left_matrix_ntt_times_right_matrix_ntt.vals, expected_product.vals):
+        for col_a, col_b in zip(row_a, row_b):
+            for coef_a, coef_b in zip(col_a, col_b):
+                assert (coef_a - coef_b) % expected_product.q == 0
+    assert intt_of_left_matrix_ntt_times_right_matrix_ntt == expected_product
     assert expected_product_ntt == left_matrix_ntt_times_right_matrix_ntt
     assert left_matrix_ntt_times_right_matrix_ntt.k1 == expected_k1
     assert left_matrix_ntt_times_right_matrix_ntt.k2 == expected_k2
@@ -530,7 +573,7 @@ def test_polyntt():
     assert z.n == 2
     assert z.k1 == 3
     assert z.k2 == 2
-    assert z.vals == [[[-2, 7], [4, -2]], [[-7, 6], [-1, -3]], [[5, 5], [-6, -4]]]
+    assert z.vals == [[[15, 7], [4, 15]], [[10, 6], [16, 14]], [[5, 5], [11, 13]]]
 
     x: PolyNTT = PolyNTT(vals=[[[0, 1], [2, 3]], [[4, 5], [6, 7]], [[8, 9], [10, 11]]], q=17, n=2, k1=3, k2=2)
     assert x.q == 17
@@ -547,7 +590,12 @@ def test_polyntt():
     assert z.n == 2
     assert z.k1 == 3
     assert z.k2 == 1
-    assert z.vals == [[[6, -3]], [[5, 4]], [[4, -6]]]
+    expected_vals = [[[6, 14]], [[5, 4]], [[4, 11]]]
+    for a, b in zip(z.vals, expected_vals):
+        for c, d in zip(a, b):
+            for e, f in zip(c, d):
+                assert (e-f) % x.q == 0
+    # assert z.vals == [[[6, -3]], [[5, 4]], [[4, -6]]]
 
     # Some failure tests. not complete, but sufficient for now.
     with pytest.raises(TypeError):

@@ -620,7 +620,7 @@ class PolyNTT(object):
         for i in range(len(other.vals)):
             for j in range(len(other.vals[0])):
                 for k in range(len(self.vals[0][0])):
-                    result.vals[i][j][k] = reduce(x=self.vals[0][0][k] * other.vals[i][j][k], q=self.q)
+                    result.vals[i][j][k] = (self.vals[0][0][k] * other.vals[i][j][k]) % self.q
         return result
 
     def _matrix_mul(self, other):
@@ -630,7 +630,11 @@ class PolyNTT(object):
         result.vals = [[[0 for k in range(self.n)] for j in range(other.k2)] for i in range(self.k1)]
         for i in range(self.k1):
             for j in range(other.k2):
-                result.vals[i][j] = [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(self.k2)), q=self.q) for k in range(self.n)]
+                tmp: list[int] = [0 for _ in range(self.n)]
+                for l in range(self.k2):
+                    for k in range(self.n):
+                        tmp[k] += self.vals[i][l][k] * other.vals[l][j][k]
+                result.vals[i][j] = [coef % self.q for coef in tmp]  # [reduce(x=sum(self.vals[i][l][k] * other.vals[l][j][k] for l in range(self.k2)), q=self.q) for k in range(self.n)]
         return result
 
     def __mod__(self, other):
