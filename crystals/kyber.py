@@ -982,8 +982,8 @@ def _ntt_one(x: list[int], inv_flag: bool, const_time: bool = True, q: int = Q, 
                 t: int = w * bit_rev_x[k + j + m // 2]
                 u: int = bit_rev_x[k + j]
                 if const_time:
-                    bit_rev_x[k + j]: int = reduce(x=u + t)
-                    bit_rev_x[k + j + m // 2]: int = reduce(x=u - t)
+                    bit_rev_x[k + j]: int = reduce(x=u + t, q=q)
+                    bit_rev_x[k + j + m // 2]: int = reduce(x=u - t, q=q)
                 else:
                     bit_rev_x[k + j]: int = (u + t) % q
                     if bit_rev_x[k + j] > half_q:

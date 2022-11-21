@@ -210,6 +210,32 @@ def test_add():
     pass
 
 
+def test_against_nayuki():
+    # https://www.nayuki.io/page/number-theoretic-transform-integer-dft
+    q = 17
+    n = 8
+    lgn = 3
+    rou = 2
+    while rou < q:
+        if all((rou ** i) % q != 1 for i in range(1, n)) and (rou ** n) % q == 1:
+            break
+        rou += 1
+    rou_inverse = (rou ** (n-1)) % q
+    powers = [n // (2**(s+1)) for s in range(3)]
+    zetas = [(rou ** i) % q for i in powers]
+    zetas = [i if i <= q else i - q for i in zetas]
+    zeta_inverses = [(rou_inverse ** i) % q for i in powers]
+    zeta_inverses = [i if i <= q else i - q for i in zeta_inverses]
+
+    input_vector = [6, 0, 10, 7, 2, 0, 0, 0]
+    observed_ntt = _ntt_one(x=input_vector, inv_flag=False, q=q, n=n, log_n=lgn, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses)
+    expected_ntt = [8, 15, 4, 12, 11, 5, 9, 1]
+    assert all((i-j) % q == 0 for i, j in zip(observed_ntt, expected_ntt))
+
+    observed_intt_of_ntt = _ntt_one(x=observed_ntt, inv_flag=True, q=q, n=n, log_n=lgn, half_q=q//2, zetas=zetas, zeta_inverses=zeta_inverses)
+    assert all((i-j) % q == 0 for i, j in zip(observed_intt_of_ntt, input_vector))
+
+
 def test_polynomial_mul():
     q = 17
     n = 2
