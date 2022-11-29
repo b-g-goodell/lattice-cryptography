@@ -284,7 +284,7 @@ def test_identities():
     assert new_times_id == new_random_matrix
 
 
-def test_poly_mul():
+def test_poly_mul_basic():
     # Polynomials from Z_q[X]/(X**4 + 1)
     q = 17
     half_q = q//2
@@ -293,26 +293,22 @@ def test_poly_mul():
     zetas, zeta_inverses = make_zetas_and_invs(q=q, n=2*n, lgn=log_n+1)
     rou = zetas[-1]
 
-    a = [randrange(q) for _ in range(n)] + [0 for _ in range(n)]  # a[0] + a[1]*X + a[2]*X**2 + a[3]*X**3
-    b = [randrange(q) for _ in range(n)] + [0 for _ in range(n)]  # b[0] + b[1]*X + b[2]*X**2 + b[3]*X**3
-    ab_full = [a[0]*b[0],
-               a[0]*b[1] + a[1]*b[0],
-               a[0]*b[2] + a[1]*b[1] + a[2]*b[0],
-               a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0],
-               a[1]*b[3] + a[2]*b[2] + a[3]*b[1],
-               a[2]*b[3] + a[3]*b[2],
-               a[3]*b[3]]  # a[0]*b[0] + (a[0]*b[1] + a[1]*b[0])*X + (a[0]*b[2] + a[1]*b[1] + a[2]*b[0])*X**2 + (a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0])*X**3 + (a[1]*b[3] + a[2]*b[2] + a[3]*b[1])*X**4 + (a[2]*b[3] + a[3]*b[2])*X**5 + a[3]*b[3]*X**6
-    ab_full += [0 for _ in range(2*n - len(ab_full))]
+    a = [reduce(x=randrange(q), q=q) for _ in range(n)] + [0 for _ in range(n)]  # a[0] + a[1]*X + a[2]*X**2 + a[3]*X**3 + 0X**4 + 0X**5 + 0X**6 + 0X**7
+    b = [reduce(x=randrange(q), q=q) for _ in range(n)] + [0 for _ in range(n)]  # b[0] + b[1]*X + b[2]*X**2 + b[3]*X**3 + 0X**4 + 0X**5 + 0X**6 + 0X**7
+    ab_full = [reduce(x=a[0]*b[0], q=q),
+               reduce(x=a[0]*b[1] + a[1]*b[0], q=q),
+               reduce(x=a[0]*b[2] + a[1]*b[1] + a[2]*b[0], q=q),
+               reduce(x=a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0], q=q),
+               reduce(x=a[1]*b[3] + a[2]*b[2] + a[3]*b[1], q=q),
+               reduce(x=a[2]*b[3] + a[3]*b[2], q=q),
+               reduce(x=a[3]*b[3], q=q),
+               0]  # a[0]*b[0] + (a[0]*b[1] + a[1]*b[0])*X + (a[0]*b[2] + a[1]*b[1] + a[2]*b[0])*X**2 + (a[0]*b[3] + a[1]*b[2] + a[2]*b[1] + a[3]*b[0])*X**3 + (a[1]*b[3] + a[2]*b[2] + a[3]*b[1])*X**4 + (a[2]*b[3] + a[3]*b[2])*X**5 + a[3]*b[3]*X**6 + 0*X**7
 
-    a_hat = _ntt_one(x=a, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
-    b_hat = _ntt_one(x=b, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
-    ab_hat = _ntt_one(x=ab_full, inv_flag=False, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    a_hat = _ntt_one(x=a, inv_flag=False, const_time=True, q=q, n=2*n, log_n=log_n+1, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    b_hat = _ntt_one(x=b, inv_flag=False, const_time=True, q=q, n=2*n, log_n=log_n+1, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    ab_full_hat = _ntt_one(x=ab_full, inv_flag=False, const_time=True, q=q, n=2*n, log_n=log_n+1, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
+    a_hat_hadamard_b_hat = [reduce(x=y * z, q=q) for y, z in zip(a_hat, b_hat)]
 
-    coordinate_wise_a_hat_times_b_hat = [(x * y) % q if (x*y) % q <= half_q else ((x*y) % q) - q for x, y in zip(a_hat, b_hat)]
-    intt_of_coordinate_wise = _ntt_one(x=coordinate_wise_a_hat_times_b_hat, inv_flag=True, const_time=False, q=q, n=n, log_n=log_n, half_q=half_q, zetas=zetas, zeta_inverses=zeta_inverses)
-
-
-    assert all((x-y) % q == 0 for x, y in zip(ab_hat, coordinate_wise_a_hat_times_b_hat))
 
 def test_matrix_mul():
     q = 17

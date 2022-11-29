@@ -1064,7 +1064,7 @@ def ntt(x: PolyCoefs | PolyNTT, q: int = Q, n: int = N, log_n: int = LOG_N, half
     :rtype: PolyCoefs | PolyNTT
     """
     if isinstance(x, PolyCoefs):
-        vals=_ntt_many(x.vals, inv_flag=False, const_time=x.const_time_flag, q=q, n=n, log_n=log_n, half_q=half_q, zetas=x.zetas, zeta_inverses=x.zeta_inverses)
+        vals = _ntt_many(x.vals, inv_flag=False, const_time=x.const_time_flag, q=q, n=n, log_n=log_n, half_q=half_q, zetas=x.zetas, zeta_inverses=x.zeta_inverses)
         return PolyNTT(vals=vals, q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
     elif isinstance(x, PolyNTT):
         return PolyCoefs(vals=_ntt_many(x.vals, inv_flag=True, const_time=x.const_time_flag, q=q, n=n, log_n=log_n, half_q=half_q, zetas=x.zetas, zeta_inverses=x.zeta_inverses), q=x.q, n=x.n, k1=x.k1, k2=x.k2, const_time_flag=x.const_time_flag)
