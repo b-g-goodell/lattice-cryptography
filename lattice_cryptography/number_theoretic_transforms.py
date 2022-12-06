@@ -1,7 +1,6 @@
 # Handles generalized NTT
 from math import ceil, sqrt, log2
 from copy import deepcopy
-from warnings import warn
 
 
 def _is_odd_prime(val: int) -> bool:
@@ -31,19 +30,18 @@ def _is_int_gt_one_and_is_pow_two(val: int) -> bool:
 
 
 class Coefs(object):
-    # Coefficient representation of a polynomial mod (q, X**max_deg + const) where
-    # max_deg is power of 2, q is a prime, and (q-1) % ord_of_prim_rou == 0
+    # Coefficient representation of a polynomial mod (coef_mod, X**deg_mod + const) where
+    # deg_mod is power of 2, coef_mod is a prime, and (coef_mod-1) % ord_of_prim_rou == 0
     coef_mod: int  # coefficient modulus
     half_coef_mod: int  # greatest integer such that 2*half_coefficient_modulus <= coefficient_modulus
     lg_coef_mod: int
-    max_deg: int  # maximum degree
+    deg_mod: int  # maximum degree
     ord_of_prim_rou: int  # order of primitive root-of-unity used to compute the NTT representation
     lg_ord_of_prim_rou: int
     const: int
-    deg_bd: int
     vals: list[int]  # coefficient representation of the polynomial
 
-    def __init__(self, coef_mod: int, max_deg: int, ord_of_prim_rou: int, const: int, vals: list[int]):
+    def __init__(self, coef_mod: int, deg_mod: int, ord_of_prim_rou: int, const: int, vals: list[int]):
         self.coef_mod = coef_mod
         if coef_mod not in HALF_INTEGERS:
             HALF_INTEGERS[coef_mod] = coef_mod // 2
@@ -51,30 +49,26 @@ class Coefs(object):
         if coef_mod not in LG_INTEGERS:
             LG_INTEGERS[coef_mod] = ceil(log2(coef_mod))
         self.lg_coef_mod: int = LG_INTEGERS[coef_mod]
-        self.max_deg: int = max_deg
+        self.deg_mod: int = deg_mod
         self.ord_of_prim_rou = ord_of_prim_rou
         if ord_of_prim_rou not in LG_INTEGERS:
             LG_INTEGERS[ord_of_prim_rou] = ceil(log2(ord_of_prim_rou))
         self.lg_ord_of_prim_rou = LG_INTEGERS[ord_of_prim_rou]
         self.const = const
         self.vals = [_reduce(val=x, mod=coef_mod) for x in vals]
-        while len(self.vals) > 0 and self.vals[-1] == 0:
-            self.vals = self.vals[:-1]
-        self.deg_bd = len(self.vals)
 
     def __repr__(self) -> str:
-        return f'Coefs(modulus={self.coef_mod}, max_deg={self.max_deg}, ord_of_prim_rou={self.ord_of_prim_rou}, const={self.const}, deg_bd={self.deg_bd}, vals={self.vals})'
+        return f'Coefs(coef_mod={self.coef_mod}, deg_mod={self.deg_mod}, ord_of_prim_rou={self.ord_of_prim_rou}, const={self.const}, vals={self.vals})'
 
     def __eq__(self, other) -> bool:
         return isinstance(other, Coefs) and \
             self.coef_mod == other.coef_mod and \
             self.half_coef_mod == other.half_coef_mod and \
             self.lg_coef_mod == other.lg_coef_mod and \
-            self.max_deg == other.max_deg and \
+            self.deg_mod == other.deg_mod and \
             self.ord_of_prim_rou == other.ord_of_prim_rou and \
             self.lg_ord_of_prim_rou == other.lg_ord_of_prim_rou and \
             self.const == other.const and \
-            self.deg_bd == other.deg_bd and \
             all((x-y) % self.coef_mod == 0 for x, y in zip(self.vals, other.vals))
 
     def __add__(self, other):
@@ -85,9 +79,6 @@ class Coefs(object):
         # check that both have the same max_deg and modulus
         result = deepcopy(self)
         result.vals = [_reduce(val=x + y, mod=self.coef_mod) for x, y in zip(self.vals, other.vals)]
-        while len(result.vals) > 0 and result.vals[-1] == 0:
-            result.vals = result.vals[:-1]
-        result.deg_bd = len(result.vals)
         return result
 
     def __radd__(self, other):
@@ -108,18 +99,15 @@ class Coefs(object):
     def __mul__(self, other):
         # check that both have the same max_deg and modulus
         result = deepcopy(self)
-        result.vals = [0 for _ in range(2*self.max_deg+2)]
+        result.vals = [0 for _ in range(2 * self.deg_mod)]
         for i, a_coef in enumerate(self.vals):
             for j, b_coef in enumerate(other.vals):
                 result.vals[i+j] += a_coef * b_coef
-        lower_vals = result.vals[:self.max_deg]
-        upper_vals = result.vals[self.max_deg:] + [0]
+        lower_vals = result.vals[:self.deg_mod]
+        upper_vals = result.vals[self.deg_mod:]
         result.vals = [x - y * self.const for x, y in zip(lower_vals, upper_vals)]
         for i, c_coef in enumerate(result.vals):
             result.vals[i] = _reduce(val=c_coef, mod=result.coef_mod)
-        while len(result.vals) > 0 and result.vals[-1] == 0:
-            result.vals = result.vals[:-1]
-        result.deg_bd = len(result.vals)
         return result
 
     def __rmul__(self, other):
@@ -142,18 +130,20 @@ def _get_nth_prim_rou_and_inv(mod: int, n: int) -> tuple[int, int]:
 
 
 class PtVals(object):
-    # Coefficient representation of a polynomial mod X**max_deg + 1
+    # "Point-Value" representation of a polynomial mod (coef_mod, X**deg_mod + const) where
+    # deg_mod is power of 2, coef_mod is a prime, and (coef_mod-1) % ord_of_prim_rou == 0
+    # Not really a point-value representation.
     coef_mod: int  # coefficient modulus
     half_coef_mod: int  # greatest integer such that 2*half_coefficient_modulus <= coefficient_modulus
     lg_coef_mod: int
-    max_deg: int  # maximum degree
+    deg_mod: int  # degree of modulus
     ord_of_prim_rou: int  # order of primitive root-of-unity used to compute the NTT representation
     lg_ord_of_prim_rou: int
     rou: int
     rou_inv: int
     vals: list[Coefs]  # "point-value" representation of the polynomial
 
-    def __init__(self, coef_mod: int, max_deg: int, ord_of_prim_rou: int, rou: int, vals: list[Coefs]):
+    def __init__(self, coef_mod: int, deg_mod: int, ord_of_prim_rou: int, rou: int, vals: list[Coefs]):
         self.coef_mod = coef_mod
         if coef_mod not in HALF_INTEGERS:
             HALF_INTEGERS[coef_mod] = coef_mod // 2
@@ -161,7 +151,7 @@ class PtVals(object):
         if coef_mod not in LG_INTEGERS:
             LG_INTEGERS[coef_mod] = ceil(log2(coef_mod))
         self.lg_coef_mod: int = LG_INTEGERS[coef_mod]
-        self.max_deg: int = max_deg
+        self.deg_mod: int = deg_mod
         self.ord_of_prim_rou = ord_of_prim_rou
         if ord_of_prim_rou not in LG_INTEGERS:
             LG_INTEGERS[ord_of_prim_rou] = ceil(log2(ord_of_prim_rou))
@@ -170,14 +160,14 @@ class PtVals(object):
         self.vals = vals  # check that len(vals) * ord_of_prim_rou == 2*(max_deg + 1)?
 
     def __repr__(self) -> str:
-        return f'PtVals(modulus={self.coef_mod}, max_deg={self.max_deg}, ord_of_prim_rou={self.ord_of_prim_rou}, rou={self.rou}, vals={[entry for entry in self.vals]})'
+        return f'PtVals(modulus={self.coef_mod}, max_deg={self.deg_mod}, ord_of_prim_rou={self.ord_of_prim_rou}, rou={self.rou}, vals={[entry for entry in self.vals]})'
 
     def __eq__(self, other) -> bool:
         return isinstance(other, PtVals) and \
             self.coef_mod == other.coef_mod and \
             self.half_coef_mod == other.half_coef_mod and \
             self.lg_coef_mod == other.lg_coef_mod and \
-            self.max_deg == other.max_deg and \
+            self.deg_mod == other.deg_mod and \
             self.ord_of_prim_rou == other.ord_of_prim_rou and \
             self.lg_ord_of_prim_rou == other.lg_ord_of_prim_rou and \
             self.rou == other.rou and \
@@ -278,21 +268,55 @@ def _ntt_base(mod: int, ord_of_prim_rou: int, vals: list[int], inverse: bool) ->
     return bit_rev_cp_vals
 
 
+def _split_into_sublists_of_len_k(val: list[int], k: int) -> list[list[int]]:
+    return [[val[j] for j in range(len(val)) if j % (len(val) // k) == i] for i in range(len(val) // k)]
+
+
+def _ntt_coefs_to_ptvals(val: Coefs, ord_of_prim_rou: int) -> PtVals:
+    coef_mod: int = val.coef_mod
+    deg_mod: int = val.deg_mod
+    deg_mod_of_ntt: int = 2 * val.deg_mod // ord_of_prim_rou
+    rou: int
+    rou_inv: int
+    rou, rou_inv = _get_nth_prim_rou_and_inv(mod=coef_mod, n=ord_of_prim_rou)
+    padvals: list[int] = val.vals
+    while len(padvals) < 2 * deg_mod:
+        padvals += [0]
+    splitvals: list[list[int]] = _split_into_sublists_of_len_k(val=padvals, k=ord_of_prim_rou)
+    splitntts: list[list[int]] = [_ntt_base(mod=coef_mod, ord_of_prim_rou=deg_mod, vals=x, inverse=False) for x in
+                                  splitvals]
+    zippedntts: list[list[int]] = [list(v) for v in zip(*splitntts)]
+    consts: list[int] = [_reduce(val=rou ** (2 * i + 1), mod=coef_mod) for i in range(len(zippedntts))]
+    bitrevd_consts: list[int] = _bit_rev_cp(val=consts)
+    the_ntts: list[Coefs] = [
+        Coefs(coef_mod=coef_mod, deg_mod=deg_mod_of_ntt, ord_of_prim_rou=ord_of_prim_rou, const=x, vals=y) for x, y
+        in zip(bitrevd_consts, zippedntts)]
+    return PtVals(coef_mod=coef_mod, deg_mod=deg_mod, ord_of_prim_rou=ord_of_prim_rou, rou=rou, vals=the_ntts)
+
+
+def _ntt_ptvals_to_coefs(val: PtVals, ord_of_prim_rou: int) -> Coefs:
+    coef_mod: int = val.coef_mod
+    deg_mod: int = val.deg_mod
+    tmptmptmp = [v.vals for v in val.vals]
+    tmptmp = list(zip(*[v.vals for v in val.vals]))
+    tmp = list(list(w) for w in zip(*[v.vals for v in val.vals]))
+    zippedntts: list[list[int]] = [list(w) for w in zip(*[v.vals for v in val.vals])]
+    print()
+    # unzippedntts: list[list[int]] = [list(v) for v in zip(*)]
+    # number_of_sublists: int = len(val.vals) // ord_of_prim_rou
+    # splitntts: list[list[int]] = [[val.vals[j].vals[i] for j in range(number_of_sublists)] for i in range(val.deg_mod)]
+    # splitvals: list[list[int]] = [_ntt_base(mod=coef_mod, ord_of_prim_rou=val.deg_mod, vals=x, inverse=True) for x in
+    #                               splitntts]
+    # padvals: list[int] = [splitvals[i][j] for j in range(len(splitvals[0])) for i in range(len(splitvals))]
+    # lower_vals = padvals[:val.deg_mod + 1]
+    # upper_vals = padvals[val.deg_mod + 1:]
+    # coefs_vals = [_reduce(val=x - y, mod=coef_mod) for x, y in zip(lower_vals, upper_vals)]
+    return Coefs(coef_mod=coef_mod, deg_mod=deg_mod, ord_of_prim_rou=ord_of_prim_rou, vals=range(deg_mod))
+
+
+
 def ntt(val: Coefs | PtVals, ord_of_prim_rou: int) -> PtVals | Coefs:
-    q: int = val.coef_mod  # rename for shorter lines of code
-    n: int = ord_of_prim_rou
     if isinstance(val, Coefs):
-        k: int = 2 * val.deg_bd // ord_of_prim_rou
-        pad_vals: list[int] = val.vals + [0 for _ in range(2*val.max_deg + 1 - val.deg_bd)]
-        split_vals: list[list[int]] = [[pad_vals[j] for j in range(2*val.max_deg + 1) if j % k == i] for i in range(k)]
-        split_ntts: list[list[int]] = [_ntt_base(mod=q, ord_of_prim_rou=n, vals=x, inverse=False) for x in split_vals]
-        ntt_vals: list[Coefs] = [Coefs(coef_mod=q, max_deg=n - 1, vals=[x[i] for x in split_ntts]) for i in range(n)]
-        return PtVals(coef_mod=q, max_deg=val.max_deg, ord_of_prim_rou=n, vals=ntt_vals)
-    k: int = len(val.vals) // ord_of_prim_rou
-    split_ntts: list[list[int]] = [[val.vals[j].vals[i] for j in range(k)] for i in range(n)]
-    split_vals: list[list[int]] = [_ntt_base(mod=q, ord_of_prim_rou=n, vals=x, inverse=True) for x in split_ntts]
-    pad_vals: list[int] = [split_vals[i][j] for j in range(len(split_vals[0])) for i in range(len(split_vals))]
-    lower_vals = pad_vals[:val.max_deg + 1]
-    upper_vals = pad_vals[val.max_deg + 1:]
-    coefs_vals = [_reduce(val=x - y, mod=q) for x, y in zip(lower_vals, upper_vals)]
-    return Coefs(coef_mod=q, max_deg=val.max_deg, ord_of_prim_rou=n, vals=coefs_vals)
+        return _ntt_coefs_to_ptvals(val=val, ord_of_prim_rou=ord_of_prim_rou)
+    return _ntt_ptvals_to_coefs(val=val, ord_of_prim_rou=ord_of_prim_rou)
+
