@@ -259,12 +259,19 @@ def _ntt_coefs_to_ptvals(val: Coefs, ord_of_prim_rou: int) -> PtVals:
 def _ntt_ptvals_to_coefs(val: PtVals, ord_of_prim_rou: int) -> Coefs:
     coef_mod: int = val.vals[0].coef_mod
     deg_mod: int = len(val.vals)*val.vals[0].deg_mod // 2
-    zippedntts: list[list[int]] = [v.vals for v in val.vals]
-    splitntts: list[list[int]] = [list(v) for v in zip(*zippedntts)]
-    unsplitvals: list[int] = _unsplit(val=splitntts)
-    lower_vals: list[int] = unsplitvals[:deg_mod]
-    upper_vals: list[int] = unsplitvals[deg_mod:]
-    merged_vals: list[int] = [_reduce(val=x - y, mod=coef_mod) for x, y in zip(lower_vals, upper_vals)]
+    zip_ntts: list[list[int]] = [v.vals for v in val.vals]
+    split_ntts: list[list[int]] = [list(v) for v in zip(*zip_ntts)]
+    split_intts: list[list[int]] = [_ntt_base(mod=coef_mod, ord_of_prim_rou=ord_of_prim_rou, vals=val, inverse=True) for val in split_ntts]
+    unsplit_intts: list[int] = []
+    for next_row in split_intts
+    unsplit_intts: list[int] = _unsplit(val=split_intts)
+    # zip_split_intts: list[tuple[int]] = list(zip(*split_intts))
+    # unsplit_intts: list[int] = []
+    # for zip_split_intt in zip_split_intts:
+    #     unsplit_intts += zip_split_intt
+    # lower_vals: list[int] = unsplit_intts[:deg_mod]
+    # upper_vals: list[int] = unsplit_intts[deg_mod:]
+    # merged_vals: list[int] = [_reduce(val=x - y, mod=coef_mod) for x, y in zip(lower_vals, upper_vals)]
     return Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=1, vals=merged_vals)
 
 
