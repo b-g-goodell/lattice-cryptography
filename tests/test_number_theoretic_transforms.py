@@ -5,7 +5,7 @@ from lattice_cryptography.number_theoretic_transforms import _is_odd_prime, \
     _reduce, \
     _is_int_gt_one_and_is_pow_two, \
     Coefs, \
-    PtVals, \
+    SplitCoefs, \
     _mod_has_nth_prim_rou, \
     _get_nth_prim_rou_and_inv, \
     _make_zetas_and_invs, \
@@ -17,36 +17,39 @@ from lattice_cryptography.number_theoretic_transforms import _is_odd_prime, \
 
 SAMPLE_SIZE: int = 3  # for use later
 
-IS_ODD_PRIME_CASES: list[tuple[int, bool]] = [
-    (3, True),
-    (5, True),
-    (7, True),
-    (11, True),
-    (13, True),
-    (3329, True),  # kyber modulus
-    (8380417, True),  # dilithium modulus
-    (8675309, True),  # Jennys number
+IS_ODD_PRIME_CASES: list[tuple[int, bool, int]] = [
+    # (3, True),
+    # (5, True),
+    # (7, True),
+    # (11, True),
+    # (13, True),
+    (17, True, 16),
+    (3329, True, 256),  # kyber modulus
+    (8380417, True, 8192),  # dilithium modulus
+    (8675309, True, 4),  # Jennys number
 ]
-IS_NOT_ODD_PRIME_CASES: list[tuple[int, bool]] = [
-    (4, False),
-    (6, False),
-    (8, False),
-    (9, False),
-    (10, False),
-    (12, False),
-    (3328, False),
-    (3330, False),
-    (8380416, False),
-    (8380418, False),
-    (8675308, False),
-    (8675310, False)
+IS_NOT_ODD_PRIME_CASES: list[tuple[int, bool, int]] = [
+    (4, False, 0),
+    (6, False, 0),
+    (8, False, 0),
+    (9, False, 0),
+    (10, False, 0),
+    (12, False, 0),
+    (3328, False, 0),
+    (3330, False, 0),
+    (8380416, False, 0),
+    (8380418, False, 0),
+    (8675308, False, 0),
+    (8675310, False, 0)
 ]
 
 
 # @pytest.mark.skip()
-@pytest.mark.parametrize("val,expected_output", IS_ODD_PRIME_CASES + IS_NOT_ODD_PRIME_CASES)
-def test_is_prime(val, expected_output):
+@pytest.mark.parametrize("val,expected_output,biggest_pow_two", IS_ODD_PRIME_CASES + IS_NOT_ODD_PRIME_CASES)
+def test_is_prime(val, expected_output, biggest_pow_two):
     assert _is_odd_prime(val=val) == expected_output
+    if _is_odd_prime(val=val):
+        assert (expected_output - 1) % biggest_pow_two == 0
 
 
 REDUCE_CASES: list[tuple[int, int, int]] = [
@@ -55,8 +58,8 @@ REDUCE_CASES: list[tuple[int, int, int]] = [
 
 
 # @pytest.mark.skip()
-@pytest.mark.parametrize("val,mod,expected_output", REDUCE_CASES)
-def test_reduce(val, mod, expected_output):
+@pytest.mark.parametrize("val,mod,expected_output,biggest_pow_two", REDUCE_CASES)
+def test_reduce(val, mod, expected_output, biggest_pow_two):
     assert _reduce(val=val, mod=mod) == expected_output
 
 
@@ -220,14 +223,14 @@ PTVALS_PRECASES: list[tuple[int, int, int, int, list[list[int]], list[Coefs]]] =
          enumerate(i[-1])]
     ]) for i in PTVALS_PREPRECASES
 ]
-PTVALS_CASES: list[tuple[int, int, int, int, list[list[int]], list[Coefs], PtVals]] = [
-    i + tuple([PtVals(vals=i[-1])]) for i in PTVALS_PRECASES
+PTVALS_CASES: list[tuple[int, int, int, int, list[list[int]], list[Coefs], SplitCoefs]] = [
+    i + tuple([SplitCoefs(vals=i[-1])]) for i in PTVALS_PRECASES
 ]
 
 
 @pytest.mark.parametrize("coef_mod,max_deg,ord_of_prim_rou,const, coefs,vals,initialized_object", PTVALS_CASES)
 def test_ptvals_init_and_repr_and_eq(coef_mod, max_deg, ord_of_prim_rou, const, coefs, vals, initialized_object):
-    assert initialized_object == PtVals(vals=vals)
+    assert initialized_object == SplitCoefs(vals=vals)
 
 
 PTVALS_ADD_PREPREPRECASES: list[tuple[int, int, int, int, list[list[int]], list[list[int]]]] = [
@@ -249,19 +252,19 @@ PTVALS_ADD_PREPRECASES: list[
 ]
 PTVALS_ADD_PRECASES: list[tuple[
     int, int, int, int, list[list[int]], list[list[int]], list[list[int]], list[Coefs], list[Coefs], list[
-        Coefs], PtVals, PtVals]] = [
+        Coefs], SplitCoefs, SplitCoefs]] = [
     i + tuple([
         [Coefs(coef_mod=i[0], deg_mod=len(j) - 1, const=i[3] ** (k + 1), vals=j) for k, j in
          enumerate(i[-3])],
-        PtVals(vals=i[-2]),
-        PtVals(vals=i[-1])
+        SplitCoefs(vals=i[-2]),
+        SplitCoefs(vals=i[-1])
     ]) for i in PTVALS_ADD_PREPRECASES
 ]
 PTVALS_ADD_CASES: list[tuple[
     int, int, int, list[list[int]], list[list[int]], list[list[int]], list[Coefs], list[Coefs], list[
-        Coefs], PtVals, PtVals, PtVals, PtVals]] = [
+        Coefs], SplitCoefs, SplitCoefs, SplitCoefs, SplitCoefs]] = [
     i + tuple([
-        PtVals(vals=i[-3]),
+        SplitCoefs(vals=i[-3]),
         i[-1] + i[-2]
     ]) for i in PTVALS_ADD_PRECASES
 ]
@@ -294,16 +297,16 @@ PTVALS_MUL_PREPRECASES: list[tuple[
 ]
 PTVALS_MUL_PRECASES: list[tuple[
     int, int, int, int, list[list[int]], list[list[int]], list[list[int]], list[Coefs], list[Coefs], list[
-        Coefs], PtVals, PtVals, PtVals]] = [
+        Coefs], SplitCoefs, SplitCoefs, SplitCoefs]] = [
     i + tuple([
-        PtVals(vals=i[7]),
-        PtVals(vals=i[8]),
-        PtVals(vals=i[9]),
+        SplitCoefs(vals=i[7]),
+        SplitCoefs(vals=i[8]),
+        SplitCoefs(vals=i[9]),
     ]) for i in PTVALS_MUL_PREPRECASES
 ]
 PTVALS_MUL_CASES: list[tuple[
     int, int, int, int, list[list[int]], list[list[int]], list[list[int]], list[Coefs], list[Coefs], list[
-        Coefs], PtVals, PtVals, PtVals, PtVals]] = [
+        Coefs], SplitCoefs, SplitCoefs, SplitCoefs, SplitCoefs]] = [
     i + tuple([
         i[-2] * i[-3]
     ]) for i in PTVALS_MUL_PRECASES
@@ -358,7 +361,7 @@ def test_coefs_mul_matches_ntt_mul():
 
     assert one_poly * a_poly == a_poly
 
-    one_ntt: PtVals = ntt(val=one_poly, ord_of_prim_rou=ord_of_prim_rou)
+    one_ntt: SplitCoefs = ntt(val=one_poly, ord_of_prim_rou=ord_of_prim_rou)
     assert all(isinstance(v, Coefs) for v in one_ntt.vals)
     expected_degree_mod_of_vals: int = 2 * deg_mod // ord_of_prim_rou
     assert all(len(v.vals) == expected_degree_mod_of_vals for v in one_ntt.vals)
@@ -370,7 +373,7 @@ def test_coefs_mul_matches_ntt_mul():
     assert all(len(v.vals) == 2 for v in one_ntt.vals)
     assert all(v.vals == [1, 0] for v in one_ntt.vals)
 
-    some_ntt: PtVals = ntt(val=a_poly, ord_of_prim_rou=ord_of_prim_rou)
+    some_ntt: SplitCoefs = ntt(val=a_poly, ord_of_prim_rou=ord_of_prim_rou)
     assert all(isinstance(v, Coefs) for v in some_ntt.vals)
     expected_degree_mod_of_vals: int = 2 * deg_mod // ord_of_prim_rou
     assert all(len(v.vals) == expected_degree_mod_of_vals for v in some_ntt.vals)
@@ -381,7 +384,7 @@ def test_coefs_mul_matches_ntt_mul():
     assert all(isinstance(v.vals, list) for v in some_ntt.vals)
     assert all(len(v.vals) == expected_degree_mod_of_vals for v in some_ntt.vals)
 
-    product: PtVals = one_ntt * some_ntt
+    product: SplitCoefs = one_ntt * some_ntt
     intt_product: Coefs = ntt(val=product, ord_of_prim_rou=ord_of_prim_rou)
 
     assert intt_product == a_poly
