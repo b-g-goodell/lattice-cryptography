@@ -1,4 +1,1 @@
 lattice-algebra
-pytest~=7.1.2
-setuptools~=60.2.0
-pydantic

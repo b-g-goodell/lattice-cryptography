@@ -263,16 +263,9 @@ def _ntt_ptvals_to_coefs(val: PtVals, ord_of_prim_rou: int) -> Coefs:
     split_ntts: list[list[int]] = [list(v) for v in zip(*zip_ntts)]
     split_intts: list[list[int]] = [_ntt_base(mod=coef_mod, ord_of_prim_rou=ord_of_prim_rou, vals=val, inverse=True) for val in split_ntts]
     unsplit_intts: list[int] = []
-    for next_row in split_intts
-    unsplit_intts: list[int] = _unsplit(val=split_intts)
-    # zip_split_intts: list[tuple[int]] = list(zip(*split_intts))
-    # unsplit_intts: list[int] = []
-    # for zip_split_intt in zip_split_intts:
-    #     unsplit_intts += zip_split_intt
-    # lower_vals: list[int] = unsplit_intts[:deg_mod]
-    # upper_vals: list[int] = unsplit_intts[deg_mod:]
-    # merged_vals: list[int] = [_reduce(val=x - y, mod=coef_mod) for x, y in zip(lower_vals, upper_vals)]
-    return Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=1, vals=merged_vals)
+    for next_split_intt in zip(*split_intts):
+        unsplit_intts += list(next_split_intt)
+    return Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=1, vals=unsplit_intts)
 
 
 def ntt(val: Coefs | PtVals, ord_of_prim_rou: int) -> PtVals | Coefs:
