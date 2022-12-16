@@ -112,19 +112,24 @@ class Coefs(object):
     coef_mod: int
     deg_mod: int
     const: int
+    ord_of_prim_rou: int
     vals: list[int]
 
-    def __init__(self, coef_mod: int, deg_mod: int, const: int, vals: list[int]):
-        if _is_odd_prime(val=coef_mod) and _is_int_gt_one_and_is_pow_two(val=deg_mod) and any(_mod_has_nth_prim_rou(mod=coef_mod, n=(2*deg_mod)//2**i) for i in range(1+ceil(log2(deg_mod)))):
+    def __init__(self, coef_mod: int, deg_mod: int, const: int, ord_of_prim_rou: int, vals: list[int]):
+        if _is_odd_prime(val=coef_mod) and \
+                _is_int_gt_one_and_is_pow_two(val=deg_mod) and \
+                _mod_has_nth_prim_rou(mod=coef_mod, n=ord_of_prim_rou):
             self.coef_mod = coef_mod
             self.deg_mod: int = deg_mod
             self.const = const
+            self.ord_of_prim_rou = ord_of_prim_rou
             self.vals = [_reduce(val=x, mod=coef_mod) for x in vals]
         elif not _is_odd_prime(val=coef_mod):
             raise ValueError(f'Cannot instantiate a Coefs object without a coef_mod that is a positive odd prime.')
         elif not _is_int_gt_one_and_is_pow_two(val=deg_mod):
             raise ValueError(f'Cannot instantiate Coefs object without a deg_mod that is a power-of-two.')
-        raise ValueError(f'Cannot instantiate a Coefs object unless coef_mod has a primitive n-th root of unity for some power-of-two n <= 2*deg_mod.')
+        else:
+            raise ValueError(f'Cannot instantiate a Coefs object unless coef_mod has a primitive n-th root of unity for some power-of-two n <= 2*deg_mod.')
 
     def __repr__(self) -> str:
         return f'Coefs{(self.coef_mod, self.deg_mod, self.const, self.vals)}'
@@ -335,7 +340,7 @@ def _bit_rev(val: int, bitstr_len: int) -> int:
         val_in_bin: str = bin(val)[2:].zfill(bitstr_len)
         nib_ni_lav: str = val_in_bin[::-1]
         ALREADY_COMPUTED_BIT_REVS[(val, bitstr_len)] = int(nib_ni_lav, 2)
-    elif 0 < val or val >= 2*bitstr_len:
+    elif 0 > val or val >= 2**bitstr_len:
         raise ValueError
     return ALREADY_COMPUTED_BIT_REVS[(val, bitstr_len)]
 
@@ -350,7 +355,7 @@ def _bit_rev_cp(val: list[int]) -> list[int]:
     """
     if _is_int_gt_one_and_is_pow_two(val=len(val)):
         bits_per_index: int = ceil(log2(len(val)))
-        return [val[_bit_rev(val=i, bitstr_len=bits_per_index)] for i in range(len(val))]
+        return [val[_bit_rev(val=i, bitstr_len=bits_per_index)] if _bit_rev(val=i, bitstr_len=bits_per_index) < len(val) else 0 for i in range(len(val))]
     raise ValueError
 
 
@@ -448,7 +453,7 @@ def _ntt_coefs_to_splitcoefs(val: Coefs, n: int) -> SplitCoefs:
     rou: int
     rou_inv: int
     rou, rou_inv = _get_nth_prim_rou_and_inv(mod=coef_mod, n=n)
-    consts: list[int] = [_reduce(val=rou ** (2 * i + 1), mod=coef_mod) for i in range(len(n//2))]  # compute the "const" attributes for each coordinate
+    consts: list[int] = [_reduce(val=rou ** (2 * i + 1), mod=coef_mod) for i in range(n//2)]  # compute the "const" attributes for each coordinate
     # TODO: this n//2 is assuming the kyber structure... FIX.
     padvals: list[int] = val.vals
     while len(padvals) < 2 * deg_mod:
@@ -458,7 +463,7 @@ def _ntt_coefs_to_splitcoefs(val: Coefs, n: int) -> SplitCoefs:
     zntts: list[list[int]] = [list(v) for v in zip(*ntts)]  # zip the results
     bitrevd_consts: list[int] = _bit_rev_cp(val=consts)
     the_ntts: list[Coefs] = [
-        Coefs(coef_mod=coef_mod, deg_mod=deg_mod_of_ntt, const=x, vals=y) for x, y in zip(bitrevd_consts, zntts)
+        Coefs(coef_mod=coef_mod, deg_mod=deg_mod_of_ntt, const=x, ord_of_prim_rou=n, vals=y) for x, y in zip(bitrevd_consts, zntts)
     ]
     return SplitCoefs(vals=the_ntts)
 
@@ -491,5 +496,5 @@ def ntt(val: Coefs | SplitCoefs) -> SplitCoefs | Coefs:
     General wrapper for _ntt_coefs_to_splitcoefs and _intt_splitcoefs_to_coefs.
     """
     if isinstance(val, Coefs):
-        return _ntt_coefs_to_splitcoefs(val=val)
-    return _intt_splitcoefs_to_coefs(val=val)
+        return _ntt_coefs_to_splitcoefs(val=val, n=val.ord_of_prim_rou)
+    return _intt_splitcoefs_to_coefs(val=val, n=val.vals[0].ord_of_prim_rou)
