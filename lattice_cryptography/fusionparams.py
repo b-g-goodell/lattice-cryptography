@@ -2,7 +2,9 @@ from math import pi, e, ceil, log2, sqrt, floor
 from crystals.kyber import is_pow_two, is_prime
 
 
-def log2binom(d: int, k: int) -> int:
+def log2binom(d: int, k: int) -> float:
+    if k == d or k == 0:
+        return 0.0
     j = k
     if k > d//2:
         j = d-k
@@ -41,8 +43,8 @@ for next_beta in range(1, 1024):
     for next_omega in range(1, d + 1):
         if -log2binom(d=d, k=next_omega) - next_omega * log2(2 * next_beta + 1) < -secpar:
             found_pairs_of_beta_omega_ch[(next_beta, next_omega)] = next_omega * next_beta
-            if minval == -1.0 or minval > 0.0 and found_pairs_of_beta_omega_ch[
-                (next_beta, next_omega)] <= minval:
+            if minval == -1.0 or (minval > 0.0 and found_pairs_of_beta_omega_ch[
+                (next_beta, next_omega)] <= minval):
                 argmin = (next_beta, next_omega)
                 minval = found_pairs_of_beta_omega_ch[(next_beta, next_omega)]
 
@@ -64,8 +66,8 @@ for next_beta in range(1, 1024):
                 log2_epsilon_tmp - log2(1 - 2 ** log2_epsilon_ch) - log2(1 - 2 ** log2_epsilon_tmp) < -(
                 secpar + 1):
             found_pairs_of_beta_omega_ag[(next_beta, next_omega)] = next_omega * next_beta
-            if minval == -1.0 or minval > 0.0 and found_pairs_of_beta_omega_ag[
-                (next_beta, next_omega)] <= minval:
+            if minval == -1.0 or (minval > 0.0 and found_pairs_of_beta_omega_ag[
+                (next_beta, next_omega)] <= minval):
                 argmin = (next_beta, next_omega)
                 minval = found_pairs_of_beta_omega_ag[(next_beta, next_omega)]
 
@@ -77,6 +79,8 @@ log2_epsilon_ag: float = -log2binom(d=d, k=omega_ag) - omega_ag * log2(2 * beta_
 found_pairs_of_beta_omega_sk: dict[tuple[int, int], float] = {}
 minval: float = -1.0
 argmin: tuple[int, int] = tuple()
+next_beta: int = 1
+
 for next_beta in range(1, 2**12):
     for next_omega in range(1, d+1):
         omega_v_prime: int = min(d, (1 + omega_ch) * next_omega)
@@ -84,7 +88,10 @@ for next_beta in range(1, 2**12):
         val: float = 2 * log2binom(d=d, k=next_omega) + 2*next_omega * log2(2 * next_beta + 1) - log2binom(d=d, k=omega_v_prime) - omega_v_prime * log2(2 * beta_v_prime + 1)
         if val > 0:
             found_pairs_of_beta_omega_sk[(next_beta, next_omega)] = next_omega*next_beta
-            if minval == -1.0 or minval > 0.0 and found_pairs_of_beta_omega_sk[(next_beta, next_omega)] <= minval:
+            if minval == -1.0:
+                argmin = (next_beta, next_omega)
+                minval = found_pairs_of_beta_omega_sk[(next_beta, next_omega)]
+            elif minval > 0.0 and found_pairs_of_beta_omega_sk[(next_beta, next_omega)] <= minval:
                 argmin = (next_beta, next_omega)
                 minval = found_pairs_of_beta_omega_sk[(next_beta, next_omega)]
 
