@@ -18,15 +18,15 @@ def log2binom(d: int, k: int) -> float:
 
 
 CRYSTALS_TARGET: float = 2.42
+PRIME_DENSITY: int = 10  # look for every 1/2**PRIME_DENSITY primes
 
-
-for log2secpar in range(8, 12):
+for log2secpar in range(8, 11):
     secpar: int = 2**log2secpar
     log2delta: float = log2(((2*secpar+9)/0.265) * (pi * ((2*secpar+9)/0.265))**(1/((2*secpar+9)/0.265)) / (2*pi*e))/(2*(((2*secpar+9)/0.265) - 1))
-    for log2capacity in range(1, 12):
+    for log2capacity in range(1, 11):
         capacity: int = 2**log2capacity
 
-        for log2d in range(6, 12):
+        for log2d in range(6, 11):
             d: int = 2**log2d
 
             found_pairs_of_beta_omega_ch: dict[tuple[int, int], float] = {}
@@ -109,7 +109,7 @@ for log2secpar in range(8, 12):
                     p: int = 2*(8 * min(d, 2 * omega_ag, 4 * omega_ch * omega_sk) * min(d, 2 * omega_ch, 2 * omega_sk) * beta_ag * beta_ch * beta_sk) + 1
                     p += (2*d) - ((p-1) % (2*d))
                     while not is_prime(x=p):
-                        p += 2*d
+                        p += 2*d*2**PRIME_DENSITY
                     while log2(p) <= 31:
                         print(f'secpar={secpar}, capacity={capacity}, d={d}, log2(p)={log2(p)}')
                         cond_9: bool = 8 * min(d, 2 * omega_ag, 4 * omega_ch * omega_sk) * min(d, 2 * omega_ch, 2 * omega_sk) * beta_ag * beta_ch * beta_sk < (p - 1) / 2
@@ -131,9 +131,9 @@ for log2secpar in range(8, 12):
                                 if winning_weight < 0 or 0 < avg_weight < winning_weight:
                                     winning_weight = avg_weight
                                     winning_pars = (secpar, capacity, d, p, omega_ag, beta_ag, omega_ch, beta_ch, omega_sk, beta_sk, ell)
-                        p += 2*d
+                        p += 2*d*2**PRIME_DENSITY
                         while not is_prime(x=p):
-                            p += 2*d
+                            p += 2*d*2**PRIME_DENSITY
                     d *= 2
 
             if len(winning_pars) > 0:
