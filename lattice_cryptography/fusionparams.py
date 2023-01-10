@@ -111,7 +111,7 @@ for log2secpar in range(8, 12):
                     while not is_prime(x=p):
                         p += 2*d
                     while log2(p) <= 31:
-                        print(log2(p))
+                        print(f'secpar={secpar}, capacity={capacity}, d={d}, log2(p)={log2(p)}')
                         cond_9: bool = 8 * min(d, 2 * omega_ag, 4 * omega_ch * omega_sk) * min(d, 2 * omega_ch, 2 * omega_sk) * beta_ag * beta_ch * beta_sk < (p - 1) / 2
                         if cond_9:
                             ell: int = ceil((secpar + 2*d*log2(p))/val)
