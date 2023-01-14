@@ -15,7 +15,7 @@ def log2binom(d: int, k: int) -> int:
     return result
 
 CRYSTALS_TARGET: float = 2.42
-ALLOWABLE_SECPARS: list[int] = [128, 256, 512, 1024]
+ALLOWABLE_SECPARS: list[int] = [128, 192, 256, 512, 1024]
 secpar_input: str = input(f'Please input a security parameter. secpar = ')
 secpar: int = int(secpar_input)
 if secpar not in ALLOWABLE_SECPARS:
@@ -101,15 +101,18 @@ assert is_prime(x=candidate_p)
 max_ell: int = 2**10
 discovered_param_sets: dict[tuple, float] = {}
 
+with open("result.txt", "w") as wf:
+    pass
+
 print(f'Beginning main loop.')
 
 winner_efficiency = -1.0
 winning_params = tuple()
 while log2(candidate_p) <= 31:
-    print(candidate_p)
+    # print(candidate_p)
     while not is_prime(x=candidate_p):
         candidate_p += 2*d
-        print(candidate_p)
+        # print(candidate_p)
     # print(f'First finding bounds on beta_sk.')
     upper_bound_on_log_beta_sk: float = log2((candidate_p - 1) / 2) - log2(beta_over_beta_sk)
     upper_bound_on_beta_sk: int = floor(2**upper_bound_on_log_beta_sk)
@@ -120,7 +123,7 @@ while log2(candidate_p) <= 31:
             candidate_p += 2 * d
         upper_bound_on_log_beta_sk: float = log2((candidate_p - 1) / 2) - log2(beta_over_beta_sk)
         upper_bound_on_beta_sk: int = floor(2**upper_bound_on_log_beta_sk)
-        print(candidate_p)
+        # print("\t"+str(candidate_p))
 
     # print(f'Now searching beta_sk range for all minimal ell that satisfies both constraints.')
     found_ell_beta_sk_pairs: list[tuple[int, int]] = []
@@ -174,14 +177,14 @@ while log2(candidate_p) <= 31:
             if agg_sig_size_in_kb / capacity + vk_size_in_kb < CRYSTALS_TARGET:
                 params = (secpar, capacity, d, ell, candidate_p, beta_sk, beta_ch, beta_ag, omega_ch, omega_ag, beta_v)
                 discovered_param_sets[params] = average_size_in_kb
-                print(f"Found a solution that beats CRYSTALS. (secpar, capacity, d, ell, p, beta_sk, beta_ch, beta_ag, omega_ch, omega_ag, beta_v) = {params} with efficiency {average_size_in_kb}")
-                print("Total solutions found that beat CRYSTALS: " + str(len(discovered_param_sets)))
+                # print(f"Found a solution that beats CRYSTALS. (secpar, capacity, d, ell, p, beta_sk, beta_ch, beta_ag, omega_ch, omega_ag, beta_v) = {params} with efficiency {average_size_in_kb}")
+                # print("Total solutions found that beat CRYSTALS: " + str(len(discovered_param_sets)))
                 with open("result.txt", "a") as wf:
                     wf.write(str(params) + "," + str(discovered_param_sets[params]) + "\n")
                 if winner_efficiency < 0 or (winner_efficiency > 0 and discovered_param_sets[params] < winner_efficiency):
                     winning_params = params
                     winner_efficiency = discovered_param_sets[params]
-                    with open("winnerd128.txt", "w") as wf:
+                    with open("winner" + str(d) + "_" + str(capacity) + ".txt", "w") as wf:
                         wf.write(str(params) + "," + str(discovered_param_sets[params]))
 
     candidate_p += 2*d
