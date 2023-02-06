@@ -3,7 +3,7 @@ from math import ceil, log2
 from random import randrange
 from lattice_cryptography.number_theoretic_transforms import _is_odd_prime, \
     _reduce, \
-    _is_int_gt_one_and_is_pow_two, \
+    _is_int_and_gt_one_and_pow_two, \
     Coefs, \
     SplitCoefs, \
     _mod_has_nth_prim_rou, \
@@ -11,9 +11,7 @@ from lattice_cryptography.number_theoretic_transforms import _is_odd_prime, \
     _make_zetas_and_invs, \
     _bit_rev, \
     _bit_rev_cp, \
-    _ntt_base, \
-    _split_into_sublists_of_len_k, \
-    ntt
+    _ntt_base
 
 SAMPLE_SIZE: int = 32  # for use later
 
@@ -72,7 +70,7 @@ IS_NOT_POS_INT_OR_NOT_POW_TWO_CASES: list[tuple[int, bool]] = [
 # @pytest.mark.skip()
 @pytest.mark.parametrize("val,expected_output", IS_POS_INT_AND_POW_TWO_CASES + IS_NOT_POS_INT_OR_NOT_POW_TWO_CASES)
 def test_is_pos_int_and_pow_two(val, expected_output):
-    assert _is_int_gt_one_and_is_pow_two(val=val) == expected_output
+    assert _is_int_and_gt_one_and_pow_two(val=val) == expected_output
 
 
 COEFS_PRECASES: list[tuple[int, int, int, int, list[int]]] = [
@@ -97,7 +95,7 @@ def test_coefs_init_and_repr_and_eq(coef_mod, deg_mod, const, n, vals, initializ
     assert len(initialized_object.vals) <= deg_mod
     assert all((x - y) % coef_mod == 0 for x, y in zip(initialized_object.vals, vals))
     assert str(initialized_object) == f'Coefs{(coef_mod, deg_mod, const, vals)}'
-    assert Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, vals=[i + coef_mod for i in vals]) == initialized_object
+    assert Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, ord_of_prim_rou=n, vals=[i + coef_mod for i in vals]) == initialized_object
 
 
 COEFS_ARITHMETIC_PRECASES: list[tuple[int, int, int, int, list[int], list[int], list[int]]] = [
@@ -139,18 +137,18 @@ def test_coefs_arithmetic(coef_mod, deg_mod, const, ord_of_prim_rou, vals_a, val
     assert neg_coefs_b.vals == [-_ for _ in coefs_b.vals]
     assert neg_coefs_c.vals == [-_ for _ in coefs_c.vals]
 
-    zero: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, vals=[0 for _ in range(deg_mod)])
+    zero: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, ord_of_prim_rou=ord_of_prim_rou, vals=[0 for _ in range(deg_mod)])
     zero_a: Coefs = coefs_a + neg_coefs_a
     zero_b: Coefs = coefs_b + neg_coefs_b
     zero_c: Coefs = coefs_c + neg_coefs_c
 
     assert zero == zero_a == zero_b == zero_c
 
-    coefs_a_minus_b: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, vals=[a - b for a, b in zip(coefs_a.vals, coefs_b.vals)])
+    coefs_a_minus_b: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, ord_of_prim_rou=ord_of_prim_rou, vals=[a - b for a, b in zip(coefs_a.vals, coefs_b.vals)])
     coefs_a_minus_coefs_b: Coefs = coefs_a - coefs_b
     assert coefs_a_minus_b == coefs_a_minus_coefs_b
 
-    coefs_b_minus_a: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, vals=[b - a for a, b in zip(coefs_a.vals, coefs_b.vals)])
+    coefs_b_minus_a: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, ord_of_prim_rou=ord_of_prim_rou, vals=[b - a for a, b in zip(coefs_a.vals, coefs_b.vals)])
     coefs_b_minus_coefs_a: Coefs = coefs_b - coefs_a
     assert coefs_b_minus_a == coefs_b_minus_coefs_a
 
@@ -161,37 +159,57 @@ def test_coefs_arithmetic(coef_mod, deg_mod, const, ord_of_prim_rou, vals_a, val
     lower: list[int] = coefs_ab_vals[:deg_mod]
     upper: list[int] = coefs_ab_vals[deg_mod:]
     coefs_ab_vals = [x - y for x, y in zip(lower, upper)]
-    coefs_ab: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, vals=coefs_ab_vals)
+    coefs_ab: Coefs = Coefs(coef_mod=coef_mod, deg_mod=deg_mod, const=const, ord_of_prim_rou=ord_of_prim_rou, vals=coefs_ab_vals)
 
     assert coefs_ab == coefs_a*coefs_b == coefs_b*coefs_a
 
 
-COEFS_MONOMIALS_ARITHMETIC_PREPREPRECASES: list[tuple[int, int, int, int, int, int, int, int]] = [
-    (3329, 256, 1, 256, randrange(256), randrange(256), randrange(3329), randrange(3329)) for i in range(SAMPLE_SIZE)
+COEFS_MONOMIALS_PRECASES: list[tuple] = [
+    (3329, 4, 1, 4) for i in range(SAMPLE_SIZE)
 ]
-COEFS_MONOMIALS_ARITHMETIC_PREPRECASES: list[tuple[int, int, int, int, int, int, int, int, list[int], list[int], list[int]]] = [
+# Now i[0] = coef_mod, i[1] = deg_mod, i[2] = const, i[3] = n = ord_of_prim_rou
+COEFS_MONOMIALS_PRECASES = [
     i + tuple([
-        [i[5] if j == i[3] else 0 for j in range(256)],
-        [i[6] if j == i[4] else 0 for j in range(256)],
-        [(2*int(i[3]+i[4]<256)-1)*((i[5]*i[6]) % 3329) if j == (i[3]+i[4]) % 256 else 0 for j in range(256)]
-    ]) for i in COEFS_MONOMIALS_ARITHMETIC_PREPREPRECASES
+        randrange(i[1]),  # monomial exponent for a
+        randrange(i[1]),  # monomial exponent for b
+        randrange(i[0]),  # monomial coefficient for a
+        randrange(i[0])  # monomial coefficient for b
+    ]) for i in COEFS_MONOMIALS_PRECASES
 ]
-COEFS_MONOMIALS_ARITHMETIC_PRECASES: list[tuple[int, int, int, int, int, int, int, int, list[int], list[int], list[int], Coefs, Coefs, Coefs]] = [
+# now i[4] = monomial exponent for a, i[5] = monomial exponent for b, i[6] = monomial coefficient for a, i[7] = monomial coefficient for b
+COEFS_MONOMIALS_PRECASES = [
     i + tuple([
-        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[-3]),
-        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[-2]),
-        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[-1])
-    ]) for i in COEFS_MONOMIALS_ARITHMETIC_PREPRECASES
+        (i[-3] + i[-4]) % i[1],  # monomial exponent for ab
+        ((i[-1]*i[-2]) % i[0])*(2*int(i[-3] + i[-4] < i[1])-1)  # monomial coefficient for ab
+    ]) for i in COEFS_MONOMIALS_PRECASES
 ]
-COEFS_MONOMIALS_ARITHMETIC_CASES: list[tuple[int, int, int, int, int, int, int, int, list[int], list[int], list[int], Coefs, Coefs, Coefs, Coefs]] = [
+# now i[8] = monomial exponent for ab, i[9] = monomial coefficient for ab
+COEFS_MONOMIALS_PRECASES = [
     i + tuple([
-        i[-3]*i[-2]
-    ]) for i in COEFS_MONOMIALS_ARITHMETIC_PRECASES
+        [i[6] if j == i[4] else 0 for j in range(i[1])],
+        [i[7] if j == i[5] else 0 for j in range(i[1])],
+        [i[9] if j == i[8] else 0 for j in range(i[1])],
+    ]) for i in COEFS_MONOMIALS_PRECASES
 ]
+# now i[10] = list of vals for a, i[11] = list of vals for b, i[12] = list of vals for ab
+COEFS_MONOMIALS_PRECASES: list[tuple] = [
+    i + tuple([
+        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[10]),
+        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[11]),
+        Coefs(coef_mod=i[0], deg_mod=i[1], const=i[2], ord_of_prim_rou=i[3], vals=i[12]),
+    ]) for i in COEFS_MONOMIALS_PRECASES
+]
+# now i[13] = a, i[14] = b, i[15] = expected ab
+COEFS_MONOMIALS_CASES = [
+    i + tuple([
+        i[-2]*i[-3]
+    ]) for i in COEFS_MONOMIALS_PRECASES
+]
+# now i[16] = observed ab
 
 
-@pytest.mark.parametrize("coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b", COEFS_MONOMIALS_ARITHMETIC_CASES)
-def test_monomial_products(coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b):
+@pytest.mark.parametrize("coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,idx_ab,int_ab,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b", COEFS_MONOMIALS_CASES)
+def test_monomial_products(coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,idx_ab,int_ab,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b):
     assert coefs_ab == coefs_a_times_coefs_b
 
 
@@ -279,13 +297,16 @@ def test_split_coefs_arithmetic(coefs_a,coefs_b,coefs_c,coefs_d,split_coefs_a_an
 
 # coef_mod,deg_mod,const,idx_a,idx_b,int_a,int_b,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b
 
-@pytest.mark.parametrize("coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b", COEFS_MONOMIALS_ARITHMETIC_CASES)
-def test_monomial_products_via_ntt(coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b):
+@pytest.mark.parametrize("coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,idx_ab,int_ab,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b", COEFS_MONOMIALS_CASES)
+def test_monomial_products_via_ntt(coef_mod,deg_mod,const,n,idx_a,idx_b,int_a,int_b,idx_ab,int_ab,vals_a,vals_b,vals_ab,coefs_a,coefs_b,coefs_ab,coefs_a_times_coefs_b):
     ntt_a = ntt(coefs_a)
     ntt_b = ntt(coefs_b)
-    ntt_ab = ntt(coefs_ab)
+    ntt_ab_one = ntt(coefs_ab)
+    another_coefs_a_times_coefs_b = coefs_a*coefs_b
+    ntt_ab_two = ntt(coefs_a*coefs_b)
+    assert ntt_ab_one == ntt_ab_two
     ntt_a_times_ntt_b = ntt_a*ntt_b
-    assert ntt_ab == ntt_a_times_ntt_b
+    assert ntt_ab_one == ntt_a_times_ntt_b
     intt_ntt_a_times_ntt_b = ntt(ntt_a_times_ntt_b)
     assert intt_ntt_a_times_ntt_b == coefs_a * coefs_b
 
