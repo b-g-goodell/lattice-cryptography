@@ -5,7 +5,7 @@ from copy import deepcopy
 CRYSTALS_TARGET: float = 2.42
 FALCON_TARGET: float = 0.666
 seen_log2binom: dict[tuple[int, int], float] = dict()
-this_p: int = 2**31 - 2**17 + 1
+this_p: int = 2**31 - 2**9 + 1
 
 def log2binom(d: int, k: int) -> float:
     if (d, k) not in seen_log2binom:
@@ -69,11 +69,14 @@ def find_omega_ag_and_beta_ag(secpar: int, d: int, max_beta: int, omega_ch: int,
 seen_omega_sk_and_beta_sk: dict[tuple[int, int, int, int, int, int, int, int], tuple[int, int] | None] = dict()
 
 
-def find_omega_sk_and_beta_sk(secpar: int, d: int, omega_ch: int, beta_ch: int, omega_ag: int, beta_ag: int, capacity: int, p: int) -> tuple[int, int] | None:
-    if (secpar, d, omega_ch, beta_ch, omega_ag, beta_ag, capacity, p) not in seen_omega_sk_and_beta_sk:
+def find_omega_sk_and_beta_sk(secpar: int, d: int, omega_ch: int, beta_ch: int, omega_ag: int, beta_ag: int, capacity: int, p: int, omega_sk: int | None = None) -> tuple[int, int] | None:
+    if (secpar, d, omega_ch, beta_ch, omega_ag, beta_ag, capacity, p, omega_sk) not in seen_omega_sk_and_beta_sk:
         maxprod: float|None = None
         argmin: tuple[int, int] = tuple()
-        for next_omega in range(d, 0, -1):
+        omega_range: list[int] = list(range(d,0,-1))
+        if omega_sk is not None and 1 <= omega_sk <= d:
+            omega_range = [omega_sk]
+        for next_omega in omega_range:
             new_max_beta: int = floor(((p-1)/2)/(8 * min(d, 2 * omega_ag, 4 * omega_ch * next_omega) * min(d, 2 * omega_ch, 2 * next_omega) * beta_ag * beta_ch))
             another_max_beta: int = floor(((p-1)/2)/(2*(capacity*min(d,omega_ag,min(d, (1+omega_ch)*next_omega)) + min(d, 2*omega_ag, min(d, (1+omega_ch)*next_omega)))*beta_ag*(1+min(d,omega_ch,next_omega)*beta_ch)))
             max_beta: int = min(new_max_beta, another_max_beta)
@@ -112,7 +115,7 @@ def find_ell(secpar: int, d: int, omega_ch: int, beta_ch: int, omega_ag: int, be
             beta: int = 2*beta_v + 2*min(d, 2*omega_ag, omega_v_prime)*beta_ag*beta_v_prime
             while (log2(d)/2 + log2(beta) - log2(p)/ell)/(ell*d-1) >= log2delta:
                 ell += 1
-            assert (log2(d)/2 + log2(beta) - log2(p)/ell)/(ell*d-1) < log2delta
+            assert verify(secpar=secpar, p=p, d=d, capacity=capacity, omega_ch=omega_ch, beta_ch=beta_ch, omega_ag=omega_ag, beta_ag=beta_ag, omega_sk=omega_sk, beta_sk=beta_sk, ell=ell)
             seen_ell[(secpar, d, omega_ch, beta_ch, omega_ag, beta_ag, capacity, omega_sk, beta_sk, p)] = ell
     return seen_ell[(secpar, d, omega_ch, beta_ch, omega_ag, beta_ag, capacity, omega_sk, beta_sk, p)]
 
@@ -129,7 +132,7 @@ def verify(secpar: int, p: int, d: int, capacity: int, omega_ch: int, beta_ch: i
     log2_epsilon_ag: float = -log2binom(d=d,k=omega_ag) - omega_ag*log2(2*beta_ag+1)
     one_minus_epsilon_ch: float = 1 - 2**log2_epsilon_ch
     one_minus_epsilon_ag: float = 1 - 2**log2_epsilon_ag
-    log2_adjusted_epsilon_ag: float = log2_epsilon_ag - log2(one_minus_epsilon_ch) - log2(one_minus_epsilon_ag)
+    log2_adjusted_epsilon_ag: float = log2_epsilon_ag - log2(one_minus_epsilon_ch) - log2(one_minus_epsilon_ag)  # Improve this with taylor expansion
     ntt_friendly: bool = ((p-1) % (2*d) == 0)
     beta_small_enough: bool = beta < (p-1)/2
     combo_small_enough: bool = 8*min(d,2*omega_ag,4*omega_ch*omega_sk)*min(d,2*omega_ch,2*omega_sk)*beta_ag*beta_ch*beta_sk < (p-1)/2
@@ -147,21 +150,23 @@ MAX_BETA_FOR_AG: int = 2**9
 seen_forced_parameters: dict = dict()
 
 
-def find_parameters_with_forced_choices(secpar: int, p: int, d: int, capacity: int, omega_ch: int | None = None, beta_ch: int | None = None, omega_ag: int | None = None, beta_ag: int | None = None) -> list | None:
-    if (secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag) not in seen_forced_parameters:
+def find_parameters_with_forced_choices(secpar: int, p: int, d: int, capacity: int, omega_ch: int | None = None, beta_ch: int | None = None, omega_ag: int | None = None, beta_ag: int | None = None, omega_sk: int | None = None) -> list | None:
+    if (secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag, omega_sk) not in seen_forced_parameters:
         seen_forced_parameters[(secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag)] = None
         omega_sk: int
         beta_sk: int
         sk_out: tuple[int, int] | None = find_omega_sk_and_beta_sk(secpar=secpar, d=d, omega_ch=omega_ch,
                                                                    beta_ch=beta_ch, omega_ag=omega_ag,
-                                                                   beta_ag=beta_ag, capacity=capacity, p=p)
+                                                                   beta_ag=beta_ag, capacity=capacity, p=p, omega_sk=omega_sk)
         if sk_out is not None:
-            omega_sk, beta_sk = sk_out
+            omega_sk_observed, beta_sk_observed = sk_out
+            if omega_sk is not None:
+                assert omega_sk_observed == omega_sk
             ell: int | None = find_ell(secpar=secpar, d=d, omega_ch=omega_ch, beta_ch=beta_ch, omega_ag=omega_ag,
-                                       beta_ag=beta_ag, capacity=capacity, omega_sk=omega_sk, beta_sk=beta_sk, p=p)
-            if ell is not None and verify(secpar=secpar, p=p, d=d, capacity=capacity, omega_ch=omega_ch, beta_ch=beta_ch, omega_ag=omega_ag, beta_ag=beta_ag, omega_sk=omega_sk, beta_sk=beta_sk, ell=ell):
+                                       beta_ag=beta_ag, capacity=capacity, omega_sk=omega_sk_observed, beta_sk=beta_sk_observed, p=p)
+            if ell is not None and verify(secpar=secpar, p=p, d=d, capacity=capacity, omega_ch=omega_ch, beta_ch=beta_ch, omega_ag=omega_ag, beta_ag=beta_ag, omega_sk=omega_sk_observed, beta_sk=beta_sk_observed, ell=ell):
                 omega_v_prime: int = min(d, (1 + omega_ch) * omega_sk)
-                beta_v_prime: int = beta_sk * (1 + min(d, omega_ch, omega_sk) * beta_ch)
+                beta_v_prime: int = beta_sk_observed * (1 + min(d, omega_ch, omega_sk_observed) * beta_ch)
                 omega_v: int = min(d, capacity * omega_ag * omega_v_prime)
                 beta_v: int = capacity * min(d, omega_ag, omega_v_prime) * beta_ag * beta_v_prime
                 vk_weight: float = 2 * d * log2(p)
@@ -174,7 +179,7 @@ def find_parameters_with_forced_choices(secpar: int, p: int, d: int, capacity: i
                 avg_weight: float = vk_weight + agg_sig_weight / capacity
                 avg_weight_kb: float = avg_weight / 8000
 
-                seen_forced_parameters[(secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag)] = (secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag, omega_sk, beta_sk, ell, avg_weight_kb)
+                seen_forced_parameters[(secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag)] = (secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag, omega_sk, beta_sk_observed, ell, avg_weight_kb)
     return seen_forced_parameters[(secpar, p, d, capacity, omega_ch, beta_ch, omega_ag, beta_ag)]
 
 
@@ -223,12 +228,12 @@ def find_parameters(secpar: int, p: int, d: int, capacity: int) -> list | None:
     return seen_parameters[(secpar, p, d, capacity)]
 
 
-ALLOWABLE_SECPARS: list[int] = [128, 256, 512]
-ALLOWABLE_DEGREE: list[int] = [256]
-ALLOWABLE_CAPACITIES: list[int] = [8, 16, 32, 64]  # list(range(2, 64))
+ALLOWABLE_SECPARS: list[int] = [192]
+ALLOWABLE_DEGREE: list[int] = [32, 64, 128]
+ALLOWABLE_CAPACITIES: list[int] = [2]  # list(range(2, 64))
 
 
-def find_all_parameters():
+def find_all_parameters() -> list:
     p: int = this_p
     result: dict = dict()
     winners: dict = dict()
@@ -306,39 +311,88 @@ def find_all_parameters():
 
 # find_all_parameters()
 
-
 some_winners: list = [
-    [128, this_p, 256, 67260, 20, 1, 20, 1],
-    [256, this_p, 256, 4096, 50, 1, 50, 1],
-    [512, this_p, 256, 60, 114, 2, 114, 2]
+    [128, 2**31-2**17+1, 64, 256, 30, 2, 30, 2, 64],
+    [128, 2**31-2**17+1, 256, 67268, 20, 1, 20, 1, 256],
+    [192, 2**31-2**17+1, 256, 10744, 34, 1, 34, 1, 256],
+    [256, 2**31-2**17+1, 256, 4673, 50, 1, 50, 1, 256],
+    [384, 2**31-2**17+1, 256, 847, 93, 1, 93, 1, 256],
+    [512, 2**31-2**17+1, 256, 59, 114, 2, 114, 2, 256],
 ]
-winners: list = []
-for winner in some_winners:
-    print(winner)
-    next_capacity: int = winner[3]
-    tmp_winner = find_parameters_with_forced_choices(secpar=winner[0], p=winner[1], d=winner[2], capacity=next_capacity, omega_ch=winner[4], beta_ch=winner[5], omega_ag=winner[6], beta_ag=winner[7])
-    tmp_cost = tmp_winner[-1]
 
-    next_capacity += 1
-    next_winner = find_parameters_with_forced_choices(secpar=winner[0], p=winner[1], d=winner[2], capacity=next_capacity, omega_ch=winner[4], beta_ch=winner[5], omega_ag=winner[6], beta_ag=winner[7])
-    next_cost = next_winner[-1]
+assert verify(secpar=128, p=2**31-2**17+1, d=64, capacity=1766, omega_ch=30, beta_ch=2, omega_ag=30, beta_ag=2, omega_sk=64, beta_sk=81, ell=174)
 
-    while next_winner is not None and tmp_winner is not None and \
-            verify(secpar=tmp_winner[0], p=tmp_winner[1], d=tmp_winner[2], capacity=tmp_winner[3], omega_ch=tmp_winner[4], beta_ch=tmp_winner[5], omega_ag=tmp_winner[6], beta_ag=tmp_winner[7], omega_sk=tmp_winner[8], beta_sk=tmp_winner[9], ell=tmp_winner[10]) and \
-            verify(secpar=next_winner[0], p=next_winner[1], d=next_winner[2], capacity=next_winner[3], omega_ch=next_winner[4], beta_ch=next_winner[5], omega_ag=next_winner[6], beta_ag=next_winner[7], omega_sk=next_winner[8], beta_sk=next_winner[9], ell=next_winner[10]) and \
-            next_cost <= tmp_cost:
-        tmp_winner = next_winner
-        tmp_cost = tmp_winner[-1]
-        print(tmp_winner)
+updated_winners = []
 
-        next_capacity += 1
-        next_winner = find_parameters_with_forced_choices(secpar=tmp_winner[0], p=tmp_winner[1], d=tmp_winner[2],capacity=next_capacity, omega_ch=tmp_winner[4],beta_ch=tmp_winner[5], omega_ag=tmp_winner[6],beta_ag=tmp_winner[7])
-        if next_winner is not None:
-            next_cost = next_winner[-1]
-    winners += [tmp_winner]
+other_updated_winners = []
+#
+# for next_winner in some_winners:
+#     # minimize p
+#     candidate = find_parameters_with_forced_choices(secpar=next_winner[0], p=next_winner[1], d=next_winner[2], capacity=next_winner[3], omega_ch=next_winner[4], beta_ch=next_winner[5], omega_ag=next_winner[6], beta_ag=next_winner[7], omega_sk=next_winner[8])
+#     landscape = [candidate]
+#     assert verify(secpar=candidate[0], p=candidate[1], d=candidate[2], capacity=candidate[3], omega_ch=candidate[4], beta_ch=candidate[5], omega_ag=candidate[6], beta_ag=candidate[7], omega_sk=candidate[8], beta_sk=candidate[9], ell=candidate[10])
+#     if candidate is not None:
+#         other_updated_winners += [candidate]
+#         this_cost = candidate[-1]
+#         next_prime = 2**floor(log2(candidate[1])) - 1
+#         next_prime -= ((next_prime - 1) % (2*candidate[2]))
+#         while not is_prime(x=next_prime):
+#             next_prime -= 2 * candidate[2]
+#         next_candidate = find_parameters_with_forced_choices(secpar=candidate[0], p=next_prime, d=candidate[2], capacity=candidate[3], omega_ch=candidate[4],beta_ch=candidate[5], omega_ag=candidate[6],beta_ag=candidate[7], omega_sk=candidate[8])
+#         if next_candidate is not None:
+#             next_cost = next_candidate[-1]
+#             landscape += [next_candidate]
+#             while candidate is not None and \
+#                     next_candidate is not None and \
+#                     verify(secpar=candidate[0], p=candidate[1], d=candidate[2], capacity=candidate[3], omega_ch=candidate[4], beta_ch=candidate[5], omega_ag=candidate[6], beta_ag=candidate[7], omega_sk=candidate[8], beta_sk=candidate[9], ell=candidate[10]) and \
+#                     verify(secpar=next_candidate[0], p=next_candidate[1], d=next_candidate[2], capacity=next_candidate[3], omega_ch=next_candidate[4], beta_ch=next_candidate[5], omega_ag=next_candidate[6], beta_ag=next_candidate[7], omega_sk=next_candidate[8], beta_sk=next_candidate[9], ell=next_candidate[10]):
+#                 candidate = next_candidate
+#                 this_cost = candidate[-1]
+#                 next_prime = 2 ** floor(log2(candidate[1])) - 1
+#                 next_prime -= ((next_prime - 1) % (2 * candidate[2]))
+#                 while not is_prime(x=next_prime):
+#                     next_prime -= 2 * candidate[2]
+#                 next_candidate = find_parameters_with_forced_choices(secpar=candidate[0], p=next_prime, d=candidate[2],
+#                                                                      capacity=candidate[3], omega_ch=candidate[4],
+#                                                                      beta_ch=candidate[5], omega_ag=candidate[6],
+#                                                                      beta_ag=candidate[7], omega_sk=candidate[8])
+#                 if next_candidate is not None:
+#                     next_cost = next_candidate[-1]
+#                     landscape += [next_candidate]
+#             landscape = sorted(landscape, key=lambda x: x[-1], reverse=False)
+#             other_updated_winners[-1] = landscape[0]
+#
+
+for next_winner in some_winners:
+    # maximize capacity
+    candidate = find_parameters_with_forced_choices(secpar=next_winner[0], p=next_winner[1], d=next_winner[2], capacity=next_winner[3], omega_ch=next_winner[4], beta_ch=next_winner[5], omega_ag=next_winner[6], beta_ag=next_winner[7], omega_sk=next_winner[8])
+    assert verify(secpar=candidate[0], p=candidate[1], d=candidate[2], capacity=candidate[3], omega_ch=candidate[4], beta_ch=candidate[5], omega_ag=candidate[6], beta_ag=candidate[7], omega_sk=candidate[8], beta_sk=candidate[9], ell=candidate[10])
+    if candidate is not None:
+        updated_winners += [candidate]
+        this_cost = candidate[-1]
+        next_capacity = candidate[3] + 1
+        next_candidate = find_parameters_with_forced_choices(secpar=candidate[0], p=candidate[1], d=candidate[2], capacity=next_capacity, omega_ch=candidate[4],beta_ch=candidate[5], omega_ag=candidate[6],beta_ag=candidate[7], omega_sk=candidate[8])
+        if next_candidate is not None:
+            next_cost = next_candidate[-1]
+            while candidate is not None and \
+                    next_candidate is not None and \
+                    next_cost < this_cost and \
+                    verify(secpar=candidate[0], p=candidate[1], d=candidate[2], capacity=candidate[3], omega_ch=candidate[4], beta_ch=candidate[5], omega_ag=candidate[6], beta_ag=candidate[7], omega_sk=candidate[8], beta_sk=candidate[9], ell=candidate[10]) and \
+                    verify(secpar=next_candidate[0], p=next_candidate[1], d=next_candidate[2], capacity=next_candidate[3], omega_ch=next_candidate[4], beta_ch=next_candidate[5], omega_ag=next_candidate[6], beta_ag=next_candidate[7], omega_sk=next_candidate[8], beta_sk=next_candidate[9], ell=next_candidate[10]):
+                candidate = next_candidate
+                this_cost = candidate[-1]
+                next_capacity += 1
+                next_candidate = find_parameters_with_forced_choices(secpar=candidate[0], p=candidate[1], d=candidate[2],
+                                                                     capacity=next_capacity, omega_ch=candidate[4],
+                                                                     beta_ch=candidate[5], omega_ag=candidate[6],
+                                                                     beta_ag=candidate[7], omega_sk=candidate[8])
+                if next_candidate is not None:
+                    next_cost = next_candidate[-1]
+            updated_winners[-1] = candidate
 
 
-for winner in winners:
+for next_winner in updated_winners:
+    winner = find_parameters_with_forced_choices(secpar=next_winner[0], p=next_winner[1], d=next_winner[2], capacity=next_winner[3], omega_ch=next_winner[4], beta_ch=next_winner[5], omega_ag=next_winner[6], beta_ag=next_winner[7], omega_sk=next_winner[8])
     file_output: str = f'We use secpar={winner[0]}, p={winner[1]}, and d={winner[2]}. \n'
     file_output += f'We set K={winner[3]}. The pair (omega_ch, beta_ch) = {(winner[4], winner[5])} minimizes omega_ch*beta_ch subject to the constraint (12). \n'
     file_output += f'The pair (omega_ag, beta_ag)={(winner[6], winner[7])} minimizes omega_ag*beta_ag subject to the constraints (13) and (14). \n'
@@ -393,3 +447,4 @@ for winner in winners:
     next_secpar_d_p=(winner[0], winner[2], winner[1])
     with open(f"results{next_secpar_d_p}.txt", "w") as wf:
         wf.write("secpar,p,d,capacity,omega_ch,beta_ch,omega_ag,beta_ag,omega_sk,beta_sk,ell,avg_weight_kb\n" + str(file_output) + "\n\n\n")
+
